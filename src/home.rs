@@ -1,11 +1,16 @@
 
-use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Home {
-    pub data: StandardCollection,
+    pub data: Data,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Data {
+    pub standard_collection: StandardCollection,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -15,9 +20,9 @@ pub struct StandardCollection {
     pub collection_group: CollectionGroup,
     pub collection_id: Uuid,
     pub containers: Vec<Container>,
-    pub image: Image,
-    pub text: Text,
-    pub video_art: Vec<Image>,
+    //pub image: Image,
+    //pub text: Text,
+    //pub video_art: Vec<Image>,
     //pub type: String,
 }
 
@@ -32,11 +37,11 @@ pub struct Container {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Set {
-    pub content_class: String,
-    pub items: Vec<Item>,
+    //pub content_class: String,
+    //pub items: Vec<Item>,
     pub meta: Meta,
     //pub type: String,
-    pub style: String,
+    pub style: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -46,9 +51,9 @@ pub struct Item {
     content_id: Uuid,
     current_availability: Availability,
     encoded_series_id: String,
-    image: Image,
+    //image: Image,
     series_id: Uuid,
-    text: Text,
+    //text: Text,
     text_experience_id: Uuid,
     tags: Vec<Tag>,
     media_rights: MediaRights,
@@ -99,14 +104,14 @@ pub struct Rating {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaRights {
-    download_blocked: bool,
-    pcon_blocked: bool,
+    //download_blocked: bool,
+    //pcon_blocked: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tag {
-    display_name: String,
+    display_name: Option<String>,
     //type: String,
     value: String,
 }
@@ -115,11 +120,10 @@ pub struct Tag {
 #[serde(rename_all = "camelCase")]
 pub struct Availability {
     region: String,
-    kids_mode: bool,
+    //kids_mode: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Meta {
     pub hits: u32,
     pub offset: u32,
@@ -130,9 +134,9 @@ pub struct Meta {
 #[serde(rename_all = "camelCase")]
 pub struct CollectionGroup {
     pub collection_group_id: Uuid,
-    pub content_class: String,
-    pub key: String,
-    pub slugs: Vec<Slug>,
+    //pub content_class: String,
+    //pub key: String,
+    //pub slugs: Vec<Slug>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -140,4 +144,18 @@ pub struct CollectionGroup {
 pub struct Slug {
     pub language: String,
     pub value: String,
+}
+
+#[cfg(test)]
+mod test {
+    use crate::home::Home;
+    use std::collections::HashMap;
+    use std::any::Any;
+
+    #[test]
+    fn deserialize() {
+        let url = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
+        reqwest::blocking::get(url).expect("response from url")
+                .json::<Home>().expect("working deserialization");
+    }
 }
