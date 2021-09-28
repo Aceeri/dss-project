@@ -149,8 +149,6 @@ pub struct Slug {
 #[cfg(test)]
 mod test {
     use crate::home::Home;
-    use std::collections::HashMap;
-    use std::any::Any;
 
     #[test]
     fn deserialize() {

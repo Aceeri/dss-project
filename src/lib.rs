@@ -7,6 +7,7 @@ extern crate tokio;
 extern crate uuid;
 extern crate mimalloc;
 extern crate reqwest;
+extern crate winit;
 
 use mimalloc::MiMalloc;
 
