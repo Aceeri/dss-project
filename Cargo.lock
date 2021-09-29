@@ -460,30 +460,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dss-project"
-version = "0.1.0"
-dependencies = [
- "gfx",
- "gfx-auxil",
- "gfx-backend-dx11",
- "gfx-backend-dx12",
- "gfx-backend-empty",
- "gfx-backend-gl",
- "gfx-backend-metal",
- "gfx-backend-vulkan",
- "gfx-hal",
- "image",
- "mimalloc",
- "reqwest",
- "serde",
- "serde_derive",
- "serde_json",
- "tokio",
- "uuid",
- "winit",
-]
-
-[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1956,6 +1932,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "418bb14643aa55a7841d5303f72cf512cfb323b8cc221d51580500a1ca75206c"
 dependencies = [
  "lock_api",
+]
+
+[[package]]
+name = "streaming-home"
+version = "0.1.0"
+dependencies = [
+ "gfx",
+ "gfx-auxil",
+ "gfx-backend-dx11",
+ "gfx-backend-dx12",
+ "gfx-backend-empty",
+ "gfx-backend-gl",
+ "gfx-backend-metal",
+ "gfx-backend-vulkan",
+ "gfx-hal",
+ "image",
+ "mimalloc",
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tokio",
+ "uuid",
+ "winit",
 ]
 
 [[package]]

@@ -9,9 +9,13 @@ extern crate mimalloc;
 extern crate reqwest;
 extern crate winit;
 
+extern crate image;
+extern crate gfx_auxil;
+
 use mimalloc::MiMalloc;
 
-mod home;
+pub mod home;
+pub mod renderer;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
