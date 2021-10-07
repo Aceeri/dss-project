@@ -1,4 +1,3 @@
-
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -39,7 +38,7 @@ pub struct Container {
 pub struct Set {
     //pub content_class: String,
     //pub items: Vec<Item>,
-    pub meta: Meta,
+    //pub meta: Option<Meta>,
     //pub type: String,
     pub style: Option<String>,
 }
@@ -65,7 +64,7 @@ pub struct Item {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct VideoArt { 
+pub struct VideoArt {
     // TODO
     media_metadata: MediaMetadata,
     purpose: String,
@@ -105,7 +104,7 @@ pub struct Rating {
 #[serde(rename_all = "camelCase")]
 pub struct MediaRights {
     //download_blocked: bool,
-    //pcon_blocked: bool,
+//pcon_blocked: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -153,7 +152,9 @@ mod test {
     #[test]
     fn deserialize() {
         let url = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
-        reqwest::blocking::get(url).expect("response from url")
-                .json::<Home>().expect("working deserialization");
+        reqwest::blocking::get(url)
+            .expect("response from url")
+            .json::<Home>()
+            .expect("working deserialization");
     }
 }
