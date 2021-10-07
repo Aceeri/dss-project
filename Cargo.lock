@@ -481,6 +481,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
+name = "dss"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "image",
+ "log",
+ "mimalloc",
+ "reqwest",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tokio",
+ "uuid",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "either"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1745,6 +1763,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "signal-hook-registry"
+version = "1.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e51e73328dc4ac0c7ccbda3a494dfa03df1de2f46018127f60c693f2648455b0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1802,24 +1829,6 @@ checksum = "246bfa38fe3db3f1dfc8ca5a2cdeb7348c78be2112740cc0ec8ef18b6d94f830"
 dependencies = [
  "bitflags",
  "num-traits",
-]
-
-[[package]]
-name = "streaming-home"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "image",
- "log",
- "mimalloc",
- "reqwest",
- "serde",
- "serde_derive",
- "serde_json",
- "tokio",
- "uuid",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -1920,8 +1929,23 @@ dependencies = [
  "memchr",
  "mio",
  "num_cpus",
+ "once_cell",
+ "parking_lot",
  "pin-project-lite",
+ "signal-hook-registry",
+ "tokio-macros",
  "winapi",
+]
+
+[[package]]
+name = "tokio-macros"
+version = "1.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "154794c8f499c2619acd19e839294703e9e32e7630ef5f46ea80d4ef0fbee5eb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
