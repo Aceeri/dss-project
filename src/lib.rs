@@ -10,7 +10,6 @@ extern crate reqwest;
 extern crate winit;
 
 extern crate image;
-extern crate gfx_auxil;
 
 use mimalloc::MiMalloc;
 
