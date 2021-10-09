@@ -1,4 +1,11 @@
 
+[[block]]
+struct CameraUniform {
+    view_matrix: mat4x4<f32>;
+};
+
+[[group(1), binding(0)]]
+var<uniform> camera: CameraUniform;
 
 struct VertexInput {
     [[location(0)]] position: vec3<f32>;
@@ -22,12 +29,8 @@ fn main(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
-    out.clip_position = vec4<f32>(
-        instance.position.x + (model.position.x * instance.size.x), 
-        instance.position.y + (model.position.y * instance.size.y), 
-        0.0,
-        1.0,
-    );
+    //out.clip_position = camera.view_matrix * vec4<f32>( instance.position.x + (model.position.x * instance.size.x), instance.position.y + (model.position.y * instance.size.y), 0.0, 1.0,);
+    out.clip_position = camera.view_matrix * vec4<f32>(model.position, 1.0);
     return out;
 }
 
