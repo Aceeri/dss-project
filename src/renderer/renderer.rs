@@ -1,6 +1,11 @@
-use winit::{event::WindowEvent, window::Window};
 
+use anyhow::Result;
+use winit::{event::WindowEvent, window::Window};
 use wgpu::util::DeviceExt;
+
+use cgmath::{Point3, Vector3, Matrix4, SquareMatrix};
+
+use std::collections::HashMap;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -55,6 +60,132 @@ const INDICES: &[u16] = &[
     */
 ];
 
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Instance {
+    position: [f32; 2],
+    size: [f32; 2],
+}
+
+impl Instance {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        use std::mem;
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Instance>() as wgpu::BufferAddress,
+            // We need to switch from using a step mode of Vertex to Instance
+            // This means that our shaders will only change to use the next
+            // instance when the shader starts processing a new instance
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
+                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
+                    shader_location: 5,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
+                // for each vec4. We'll have to reassemble the mat4 in
+                // the shader.
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    shader_location: 6,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+            ],
+        }
+    }
+}
+
+// An orthographic camera, mostly just used here for keeping scaling of objects tidy, but could be useful to swap out later
+// for a perspective camera to make things look more fancy.
+pub struct Camera {
+    pub eye: cgmath::Point3<f32>,
+    pub target: cgmath::Point3<f32>,
+    pub up: cgmath::Vector3<f32>,
+    pub left: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub top: f32,
+    pub near: f32,
+    pub far: f32,
+}
+
+impl Camera {
+    pub fn new() -> Self {
+        Self {
+            eye: Point3::new(0.0,0.0, 1.0),
+            target: Point3::new(0.0,0.0, 0.0),
+            up: Vector3::unit_y(),
+
+            left: 0.0,
+            right: 800.0,
+            top: 0.0,
+            bottom: 600.0,
+            near: 0.1,
+            far: 100.0,
+        }
+    }
+
+    pub fn build_view_matrix(&self) -> Matrix4<f32> {
+        let view = Matrix4::<f32>::look_at_rh(self.eye, self.target, self.up);
+        let ortho = cgmath::ortho(self.left, self.right, self.bottom, self.top, self.near, self.far);
+        OPENGL_TO_WGPU_MATRIX * ortho * view
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CameraUniform {
+    view_matrix: [[f32; 4]; 4],
+}
+
+impl CameraUniform {
+    pub fn new() -> Self {
+        Self {
+            view_matrix: cgmath::Matrix4::identity().into(),
+        }
+    }
+
+    pub fn update_view(&mut self, camera: &Camera) {
+        self.view_matrix = camera.build_view_matrix().into();
+    }
+}
+
+// DirectX/Metal and OpenGL use different coordinate systems, where the former has normalized coordinates
+// of x and y in the range of -1.0 to +1.0 with the z being 0.0 to +1.0. So using this to translate to
+// the former's coordinate system.
+pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.0,
+    0.0, 0.0, 0.5, 1.0,
+);
+
+pub struct Image {
+    texture_handle: Option<TextureHandle>,
+}
+
+pub struct RenderNode {
+    position: wgpu::Extent3d,
+    pub local_position: wgpu::Extent3d,
+    pub kind: RenderNodeType,
+    pub children: Vec<RenderNode>,
+}
+
+pub enum RenderNodeType {
+    Image {
+        handle: Option<TextureHandle>,
+        size: wgpu::Extent3d,
+    },
+    Text {
+        //handle: TextHandle,
+    },
+    Container,
+}
+
+pub struct TextureHandle(u32);
+
 pub struct Renderer {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -72,6 +203,12 @@ pub struct Renderer {
     diffuse_bind_group: wgpu::BindGroup,
     diffuse_texture: crate::renderer::Texture,
 
+    texture_instances: Vec<Instance>,
+    texture_instance_buffer: wgpu::Buffer,
+
+    camera: Camera,
+    //texture_index: u32,
+
     clear_color: wgpu::Color,
 }
 
@@ -86,6 +223,7 @@ impl Renderer {
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::default(), // Should this be low power maybe?
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .unwrap();
@@ -160,7 +298,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: "main",
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), Instance::desc()],
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
@@ -203,7 +341,6 @@ impl Renderer {
         );
         let num_indices = INDICES.len() as u32;
 
-
         let diffuse_bytes = include_bytes!("test.png");
         let diffuse_texture =
             crate::renderer::Texture::from_bytes(&device, &queue, diffuse_bytes, "test.png")
@@ -223,6 +360,25 @@ impl Renderer {
             ],
             label: Some("diffuse_bind_group"),
         });
+
+        let texture_instances = (0..5).flat_map(|z| {
+            (0..5).map(move |x| {
+                Instance {
+                    position: [x as f32 / 10.0, z as f32],
+                    size: [0.1, 1.0],
+                }
+            })
+        }).collect::<Vec<_>>();
+
+        let texture_instance_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Texture Instance Buffer"),
+                contents: bytemuck::cast_slice(&texture_instances),
+                usage: wgpu::BufferUsages::VERTEX,
+            }
+        );
+
+        let camera = Camera::new();
 
         let clear_color = wgpu::Color {
             r: 0.0,
@@ -246,6 +402,11 @@ impl Renderer {
 
             diffuse_bind_group,
             diffuse_texture,
+
+            texture_instances,
+            texture_instance_buffer,
+            
+            camera,
 
             clear_color,
         }
@@ -278,8 +439,8 @@ impl Renderer {
     pub fn update(&mut self) {}
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.surface.get_current_frame()?.output;
-        let view = output
+        let frame = self.surface.get_current_texture()?;
+        let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -306,12 +467,14 @@ impl Renderer {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(1, self.texture_instance_buffer.slice(..));
             render_pass.set_index_buffer( self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.texture_instances.len() as _);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
+        frame.present();
 
         Ok(())
     }
@@ -319,4 +482,11 @@ impl Renderer {
     pub fn size(&self) -> winit::dpi::PhysicalSize<u32> {
         self.size
     }
+
+    /*
+    pub fn create_image_instance(&mut self, image: &[u8]) -> Result<TextureHandle> {
+        self.texture_index += 1;
+        Ok(TextureHandle(self.texture_index));
+    }
+    */
 }

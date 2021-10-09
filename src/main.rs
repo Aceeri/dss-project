@@ -1,3 +1,4 @@
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -14,8 +15,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let event_loop = EventLoop::new();
     let window_builder = WindowBuilder::new()
-        .with_min_inner_size(LogicalSize::new(800.0, 600.0))
-        .with_inner_size(PhysicalSize::new(800.0, 600.0))
+        .with_min_inner_size(LogicalSize::new(400.0, 300.0))
+        .with_inner_size(PhysicalSize::new(400.0, 300.0))
         .with_title("DSS Project".to_string());
 
     let window = window_builder.build(&event_loop).unwrap();
