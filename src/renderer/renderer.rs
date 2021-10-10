@@ -41,11 +41,15 @@ const VERTICES: &[Vertex] = &[
     Vertex { position: [-1.0, -1.0, 0.0], tex_coords: [0.0, 1.0], },
     Vertex { position: [1.0, -1.0, 0.0], tex_coords: [1.0, 1.0], },
     Vertex { position: [1.0, 1.0, 0.0], tex_coords: [1.0, 0.0], },
-    */
     Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
     Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
     Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
     Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
+    */
+    Vertex { position: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0], },
+    Vertex { position: [0.0, -0.5, 0.0], tex_coords: [0.0, 1.0], },
+    Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
+    Vertex { position: [-0.5, 0.0, 0.0], tex_coords: [1.0, 0.0], },
     /*
     Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
     Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
@@ -71,6 +75,7 @@ const INDICES: &[u16] = &[
 pub struct Instance {
     position: [f32; 2],
     size: [f32; 2],
+    //texture: Texture,
 }
 
 impl Instance {
@@ -130,38 +135,25 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(width: f32, height: f32) -> Self {
+        let aspect_ratio = width / height;
         Self {
             eye: (0.0, 0.0, 1.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::Y,
 
+            /*
             left: -width / 2.0,
             right: width / 2.0,
             bottom: -height / 2.0,
             top: height / 2.0,
-            /*
-            left: -2.0,
-            right: 2.0,
-            bottom: -2.0,
-            top: 2.0,
             */
+            left: 0.0,
+            right: aspect_ratio,
+            top: 0.0,
+            bottom: -1.0,
 
             near: 0.0,
             far: 1000.0,
-
-            /*
-            // position the camera one unit up and 2 units back
-            // +z is out of the screen
-            eye: (0.0, 1.0, 50.0).into(),
-            // have it look at the origin
-            target: (0.0, 0.0, 0.0).into(),
-            // which way is "up"
-            up: cgmath::Vector3::unit_y(),
-            aspect: width / height,
-            fovy: 90.0,
-            znear: 0.1,
-            zfar: 10000.0,
-            */
         }
     }
 
@@ -170,12 +162,6 @@ impl Camera {
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
         let ortho = Mat4::orthographic_rh(self.left, self.right, self.bottom, self.top, self.near, self.far);
         ortho * view
-
-        /*
-        let view = cgmath::Matrix4::look_at_rh(self.eye, self.target, self.up);
-        let proj = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.znear, self.zfar);
-        OPENGL_TO_WGPU_MATRIX * proj * view
-        */
     }
 }
 
@@ -363,8 +349,8 @@ impl Renderer {
                 entry_point: "main",
                 targets: &[wgpu::ColorTargetState {
                     format: config.format,
-                    //blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    //blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 }],
             }),
@@ -423,8 +409,8 @@ impl Renderer {
         let texture_instances = (0..5).flat_map(|z| {
             (0..5).map(move |x| {
                 Instance {
-                    position: [x as f32 * 10.0, z as f32 * 10.0],
-                    size: [100.0, 100.0],
+                    position: [x as f32 * 1.0, z as f32 * 1.0],
+                    size: [1.0, 1.0],
                 }
             })
         }).collect::<Vec<_>>();
