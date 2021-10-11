@@ -36,21 +36,21 @@ impl Vertex {
 }
 
 const VERTICES: &[Vertex] = &[
+    Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
+    Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
+    Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
+    Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
     /*
-    Vertex { position: [-1.0, 1.0, 0.0], tex_coords: [0.0, 0.0], },
-    Vertex { position: [-1.0, -1.0, 0.0], tex_coords: [0.0, 1.0], },
-    Vertex { position: [1.0, -1.0, 0.0], tex_coords: [1.0, 1.0], },
-    Vertex { position: [1.0, 1.0, 0.0], tex_coords: [1.0, 0.0], },
     Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
     Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
     Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
     Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
     */
+    /*
     Vertex { position: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0], },
     Vertex { position: [0.0, -0.5, 0.0], tex_coords: [0.0, 1.0], },
     Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
     Vertex { position: [-0.5, 0.0, 0.0], tex_coords: [1.0, 0.0], },
-    /*
     Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
     Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
     Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397], }, // C
@@ -71,7 +71,7 @@ const INDICES: &[u16] = &[
 ];
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Instance {
     position: [f32; 2],
     size: [f32; 2],
@@ -141,12 +141,6 @@ impl Camera {
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::Y,
 
-            /*
-            left: -width / 2.0,
-            right: width / 2.0,
-            bottom: -height / 2.0,
-            top: height / 2.0,
-            */
             left: 0.0,
             right: aspect_ratio,
             top: 0.0,
@@ -224,6 +218,8 @@ pub struct Renderer {
     diffuse_bind_group: wgpu::BindGroup,
     diffuse_texture: crate::renderer::Texture,
 
+    depth_texture: crate::renderer::Texture,
+
     texture_instances: Vec<Instance>,
     texture_instance_buffer: wgpu::Buffer,
     //texture_index: u32,
@@ -256,7 +252,7 @@ impl Renderer {
             .request_device(
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::downlevel_defaults(),
+                    limits: wgpu::Limits::default(),
                     label: None,
                 },
                 None,
@@ -336,6 +332,8 @@ impl Renderer {
                 push_constant_ranges: &[],
             });
 
+        let depth_texture = crate::renderer::Texture::create_depth_texture(&device, &config, "depth_texture");
+
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
@@ -363,7 +361,13 @@ impl Renderer {
                 polygon_mode: wgpu::PolygonMode::Fill,
                 conservative: false,
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: crate::renderer::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
@@ -406,14 +410,17 @@ impl Renderer {
             label: Some("diffuse_bind_group"),
         });
 
-        let texture_instances = (0..5).flat_map(|z| {
+        let texture_instances = (0..5).flat_map(|y| {
             (0..5).map(move |x| {
+                let size = 0.10;
                 Instance {
-                    position: [x as f32 * 1.0, z as f32 * 1.0],
-                    size: [1.0, 1.0],
+                    position: [x as f32 * size - (size / 2.0), y as f32 * -size - (size / 2.0)],
+                    size: [size, size],
                 }
             })
         }).collect::<Vec<_>>();
+
+        println!("instance: {:?}", texture_instances);
 
         let texture_instance_buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -477,6 +484,8 @@ impl Renderer {
             camera_buffer,
             camera_bind_group,
 
+            depth_texture,
+
             clear_color,
         }
     }
@@ -486,8 +495,12 @@ impl Renderer {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
+
             self.camera = Camera::new(new_size.width as f32, new_size.height as f32);
             self.camera_uniform.set_view_matrix(&self.camera);
+
+            self.depth_texture = crate::renderer::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+
             self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
             self.surface.configure(&self.device, &self.config);
         }
@@ -533,7 +546,14 @@ impl Renderer {
                         store: true,
                     },
                 }],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
