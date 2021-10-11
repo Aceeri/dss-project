@@ -5,7 +5,10 @@ use wgpu::util::DeviceExt;
 
 use glam::{Mat4, Vec3};
 
-use std::collections::HashMap;
+use std::{
+    mem,
+    collections::HashMap,
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -17,7 +20,7 @@ pub struct Vertex {
 impl Vertex {
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
@@ -26,7 +29,7 @@ impl Vertex {
                     format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
@@ -35,39 +38,21 @@ impl Vertex {
     }
 }
 
+// Just define a basic quad for tile images.
 const VERTICES: &[Vertex] = &[
     Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
     Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
     Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
     Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
-    /*
-    Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
-    Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
-    Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
-    Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
-    */
-    /*
-    Vertex { position: [0.0, 0.0, 0.0], tex_coords: [0.0, 0.0], },
-    Vertex { position: [0.0, -0.5, 0.0], tex_coords: [0.0, 1.0], },
-    Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
-    Vertex { position: [-0.5, 0.0, 0.0], tex_coords: [1.0, 0.0], },
-    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
-    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
-    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397], }, // C
-    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 0.84732914], }, // D
-    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 0.2652641], }, // E
-    */
 ];
 
+// Having an index buffer saves a little bit on memory bandwidth between cpu and gpu.
+// In this case specifically I don't think it really saves that much, it is saving something
+// like ~8 bytes per image so not super worthwhile, but index buffers have other benefits like 
+// cache locality and seem like better practice IMO.
 const INDICES: &[u16] = &[
     0, 1, 2,
     2, 3, 0,
-    /*
-    0, 1, 4,
-    1, 2, 4,
-    2, 3, 4,
-    /* padding */ 0,
-    */
 ];
 
 #[repr(C)]
@@ -75,12 +60,10 @@ const INDICES: &[u16] = &[
 pub struct Instance {
     position: [f32; 2],
     size: [f32; 2],
-    //texture: Texture,
 }
 
 impl Instance {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
-        use std::mem;
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Instance>() as wgpu::BufferAddress,
             // We need to switch from using a step mode of Vertex to Instance
@@ -121,26 +104,18 @@ pub struct Camera {
     pub top: f32,
     pub near: f32,
     pub far: f32,
-
-    /*
-    eye: cgmath::Point3<f32>,
-    target: cgmath::Point3<f32>,
-    up: cgmath::Vector3<f32>,
-    aspect: f32,
-    fovy: f32,
-    znear: f32,
-    zfar: f32,
-    */
 }
 
 impl Camera {
     pub fn new(width: f32, height: f32) -> Self {
         let aspect_ratio = width / height;
         Self {
+            // Back up 1 so we can actually see the images.
             eye: (0.0, 0.0, 1.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::Y,
 
+            // Scale vertically and have it "anchor" at the top left.
             left: 0.0,
             right: aspect_ratio,
             top: 0.0,
@@ -152,13 +127,13 @@ impl Camera {
     }
 
     pub fn build_view_matrix(&self) -> Mat4 {
-        println!("{:?}", self);
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
         let ortho = Mat4::orthographic_rh(self.left, self.right, self.bottom, self.top, self.near, self.far);
         ortho * view
     }
 }
 
+// Something that we will actually send to the GPU for the shaders to use.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
@@ -177,30 +152,6 @@ impl CameraUniform {
     }
 }
 
-pub struct Image {
-    texture_handle: Option<TextureHandle>,
-}
-
-pub struct RenderNode {
-    position: wgpu::Extent3d,
-    pub local_position: wgpu::Extent3d,
-    pub kind: RenderNodeType,
-    pub children: Vec<RenderNode>,
-}
-
-pub enum RenderNodeType {
-    Image {
-        handle: Option<TextureHandle>,
-        size: wgpu::Extent3d,
-    },
-    Text {
-        //handle: TextHandle,
-    },
-    Container,
-}
-
-pub struct TextureHandle(u32);
-
 pub struct Renderer {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -211,18 +162,13 @@ pub struct Renderer {
 
     // Buffers
     vertex_buffer: wgpu::Buffer,
-    num_vertices: u32,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
 
-    diffuse_bind_group: wgpu::BindGroup,
-    diffuse_texture: crate::renderer::Texture,
+    tile_bind_group: wgpu::BindGroup,
+    tile_texture: HashMap<TextureID, crate::renderer::Texture>,
 
     depth_texture: crate::renderer::Texture,
-
-    texture_instances: Vec<Instance>,
-    texture_instance_buffer: wgpu::Buffer,
-    //texture_index: u32,
 
     camera: Camera,
     camera_uniform: CameraUniform,
@@ -347,8 +293,8 @@ impl Renderer {
                 entry_point: "main",
                 targets: &[wgpu::ColorTargetState {
                     format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    //blend: Some(wgpu::BlendState::REPLACE),
+                    //blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 }],
             }),
@@ -410,12 +356,14 @@ impl Renderer {
             label: Some("diffuse_bind_group"),
         });
 
-        let texture_instances = (0..5).flat_map(|y| {
-            (0..5).map(move |x| {
-                let size = 0.10;
+        let aspect_ratio = config.width as f32 / config.height as f32;
+        let texture_instances = (0..2).flat_map(|y| {
+            (0..2).map(move |x| {
+                let size_x = 0.20;
+                let size_y = size_x * aspect_ratio;
                 Instance {
-                    position: [x as f32 * size - (size / 2.0), y as f32 * -size - (size / 2.0)],
-                    size: [size, size],
+                    position: [x as f32 * (size_x + 0.01) + (size_x / 2.0), y as f32 * (-size_y - 0.01) - (size_y / 2.0)],
+                    size: [size_x, size_y],
                 }
             })
         }).collect::<Vec<_>>();
@@ -469,7 +417,6 @@ impl Renderer {
             render_pipeline,
 
             vertex_buffer,
-            num_vertices,
             index_buffer,
             num_indices,
 
@@ -557,16 +504,24 @@ impl Renderer {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.texture_instance_buffer.slice(..));
             render_pass.set_index_buffer( self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
+
+            // Ideally we would batch this into a single draw call by using texture atlases/arrays but
+            // for the sake of simplicity going to just do a draw call per tile image.
+            //
+            // Could also have some fun with multithreading this although I don't know how much performance
+            // that would really save here.
+
+            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.texture_instances.len() as _);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
+
+        // Need to present the wgpu frame now instead of just dropping.
         frame.present();
 
         Ok(())
