@@ -111,7 +111,7 @@ impl Menu {
                             if let Some(series) = &image.series {
                                 if let Some(details) = series.get("default") {
                                     let mut tile = Tile::new(details.clone());
-                                    tile.size = Vec2::new(0.2, 0.2);
+                                    tile.size = Vec2::new(0.1, 0.1);
                                     println!("new tile");
                                     collection.push_tile(tile);
                                 }
@@ -194,9 +194,9 @@ impl Pollable for Menu {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.home {
             Some(home) => {
-                let mut done = false;
+                let mut done = true;
                 for collection in &mut self.collections {
-                    done = done || collection.poll(grabber)?;
+                    done = done && collection.poll(grabber)?;
                 }
 
                 Ok(done)
@@ -244,9 +244,22 @@ impl Collection {
 
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
-        tile.set_position(&Vec2::new(0.2 * self.tiles.len() as f32, 0.0));
+        tile.set_position(&Vec2::new(0.1 * self.tiles.len() as f32, 0.0));
         println!("{:?}", tile.absolute_position());
         self.tiles.push(tile);
+        self.set_focused_tile(self.focused_tile);
+    }
+
+    pub fn set_focused_tile(&mut self, mut index: usize) {
+        if self.tiles.len() > 0 {
+            if index > self.tiles.len() - 1 {
+                index = self.tiles.len();
+            }
+
+            self.tiles.get_mut(self.focused_tile).map(|previous| previous.selected = false);
+            self.focused_tile = index;
+            self.tiles.get_mut(self.focused_tile).map(|current| current.selected = true);
+        }
     }
 }
 
@@ -297,7 +310,7 @@ impl EventGrab for Collection {
                     new_focused_tile = 0;
                 }
 
-                self.focused_tile = new_focused_tile;
+                self.set_focused_tile(new_focused_tile);
                 println!("new focused {:?}", self.focused_tile);
                 return true;
             }
@@ -314,9 +327,9 @@ impl EventGrab for Collection {
 
 impl Pollable for Collection {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
-        let mut done = false;
+        let mut done = true;
         for tile in &mut self.tiles {
-            done = done || tile.poll(grabber)?;
+            done = done && tile.poll(grabber)?;
         }
 
         Ok(done)
@@ -337,6 +350,7 @@ impl SetRenderDetails for Collection {
 pub struct Tile {
     position: Position,
     size: Vec2,
+    selected: bool,
 
     image_instance: Option<ImageInstanceHandle>,
     image_bytes: Option<bytes::Bytes>,
@@ -348,6 +362,7 @@ impl Tile {
         Self {
             position: Position::new(),
             size: Vec2::new(0.1, 0.1),
+            selected: false,
 
             image_instance: None,
             image_bytes: None,
@@ -362,9 +377,11 @@ impl Pollable for Tile {
             Some(_image_bytes) => Ok(true),
             None => {
                 if let Poll::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
+                    println!("got response");
                     self.image_bytes = Some(bytes?.clone());
                     Ok(true)
                 } else {
+                    print!(".");
                     Ok(false)
                 }
             }
@@ -393,9 +410,15 @@ impl SetRenderDetails for Tile {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
         match (&self.image_instance, &self.image_bytes) {
             (Some(image_instance), _) => {
+                let mut size = self.size;
+                if self.selected {
+                    let selected_scaling = Vec2::new(1.2,1.2);
+                    size = size * selected_scaling;
+                }
+
                 renderer.set_image_instance_position(*image_instance, Instance {
                     position: self.absolute_position().into(),
-                    size: self.size.into(),
+                    size: size.into(),
                 });
             }
             (None, Some(texture_bytes)) => {
@@ -407,6 +430,7 @@ impl SetRenderDetails for Tile {
                 };
 
                 let image_handle = renderer.create_image(texture);
+                println!("tile: {:?}", self.absolute_position());
                 let instance_handle = renderer.create_instance(Instance {
                     position: self.absolute_position().into(),
                     size: self.size.into(),
@@ -427,6 +451,12 @@ mod test {
 
     #[test]
     fn hierarchy_test() {
+        let dummy_details: ImageDetails = ImageDetails {
+            master_width: 0,
+            master_height: 0,
+            url: "dummy".to_owned(),
+        };
+
         let mut menu = Menu {
             home: None,
             position: Position::new(),
@@ -435,13 +465,10 @@ mod test {
                 tiles: vec![Tile {
                     position: Position::new(),
                     size: Vec2::ZERO,
+                    selected: false,
                     image_bytes: None,
                     image_instance: None,
-                    details: ImageDetails {
-                        master_width: 0,
-                        master_height: 0,
-                        url: "dummy".to_owned(),
-                    },
+                    details: dummy_details.clone(),
                 }],
                 focused_tile: 0,
             }],
@@ -474,5 +501,13 @@ mod test {
             menu.collections[0].tiles[0].absolute_position(),
             Vec2::new(30.0, 30.0)
         );
+
+        let mut new_collection = Collection::new();
+        let mut new_tile = Tile::new(dummy_details);
+        new_collection.push_tile(new_tile);
+        menu.push_collection(new_collection);
+        println!("{:?}", menu.absolute_position());
+        println!("{:?}", menu.collections[1].absolute_position());
+        println!("{:?}", menu.collections[1].tiles[0].absolute_position());
     }
 }

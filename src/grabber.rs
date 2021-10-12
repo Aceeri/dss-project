@@ -92,7 +92,7 @@ impl HttpGrabber {
 
     // Alright, sending individual tasks is kind of complicated, so let's just send 1 request and check for the response before moving on.
     pub fn poll_request(&mut self, url: String) -> Result<HttpResponse> {
-        println!("polling request for {:?}", url);
+        //println!("polling request for {:?}", url);
         self.request_transmit.send(url.clone())?;
         let response = self.response_receive.recv()?;
         Ok(response)

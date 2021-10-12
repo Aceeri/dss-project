@@ -341,6 +341,12 @@ impl Renderer {
             label: Some("camera_bind_group"),
         });
 
+        /*
+        let fallback_bytes = include_bytes!("test.png");
+        let fallback_texture = crate::renderer::Texture::from_bytes(&device, &queue, fallback_bytes, "fallback.png").expect("created texture");
+        let fallback_image_handle = self.create_image(fallback_texture);
+        */
+
         let clear_color = wgpu::Color {
             r: 0.0,
             g: 0.0,
@@ -476,7 +482,7 @@ impl Renderer {
                 let image = self.images.get(image_instance.image.0);
                 if let Some(image) = image {
                     render_pass.set_bind_group(0, &image.bind_group, &[]);
-                    render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, (image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1));
+                    render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1);
                 }
             }
         }
@@ -520,7 +526,15 @@ impl Renderer {
 
     pub fn set_instance(&mut self, handle: InstanceHandle, new_instance: Instance) {
         match self.instances.get_mut(handle.0) {
-            Some(instance) => *instance = new_instance,
+            Some(instance) => {
+                *instance = new_instance;
+                
+                self.queue.write_buffer(
+                    &self.instance_buffer,
+                    0,
+                    bytemuck::cast_slice(self.instances.current().as_slice()),
+                );
+            },
             None => {},
         }
     }

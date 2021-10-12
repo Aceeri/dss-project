@@ -7,11 +7,12 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use bytes::Bytes;
+use glam::Vec2;
 
 pub use crate::{
     renderer::Renderer,
     grabber::HttpGrabber,
-    menu::{Menu, EventGrab, Collection, Tile},
+    menu::{Menu, EventGrab, Collection, PositionHierarchy, Tile},
     home::Home,
     image::EncodableLayout,
 };
@@ -39,6 +40,8 @@ impl App {
 
         let window = window_builder.build(&event_loop).unwrap();
         let mut menu = Menu::new();
+        menu.set_position(&Vec2::new(0.0, -0.1));
+
         let mut renderer = Renderer::new(&window).await?;
         let mut http_grabber = HttpGrabber::new();
 
