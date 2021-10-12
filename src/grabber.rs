@@ -6,12 +6,14 @@ use reqwest::{Client, RequestBuilder};
 use tokio::task::{self, JoinHandle};
 
 use std::task::Poll;
+use std::collections::{HashMap, HashSet};
 
-pub type HttpResponse = Poll<Result<Bytes>>;
+pub type HttpResponse = Poll<(String, Result<Bytes>)>;
 
 pub struct HttpGrabber {
     pub request_transmit: Sender<String>,
     pub response_receive: Receiver<HttpResponse>,
+    pub response_pool: HashMap<String, Poll<Result<Bytes>>>,
     join_handle: JoinHandle<()>,
 }
 
@@ -27,7 +29,9 @@ pub fn spawn(
             let client = client.clone();
             let response_transmit = response_transmit.clone();
             task::spawn(async move {
-                let request = client.get(url);
+                let request = client.get(url.clone());
+
+                // Send Poll::Pending so we don't wait on this in the main thread.
                 response_transmit
                     .send_async(Poll::Pending)
                     .await
@@ -35,7 +39,7 @@ pub fn spawn(
 
                 let result = fetch_image(request).await;
                 response_transmit
-                    .send_async(Poll::Ready(result))
+                    .send_async(Poll::Ready((url, result)))
                     .await
                     .expect("send result");
             });
@@ -51,8 +55,8 @@ pub async fn fetch_image(request: RequestBuilder) -> Result<Bytes> {
 
 impl HttpGrabber {
     pub fn new() -> HttpGrabber {
-        let (request_transmit, request_receive) = flume::bounded(1);
-        let (response_transmit, response_receive) = flume::bounded(1);
+        let (request_transmit, request_receive) = flume::unbounded();
+        let (response_transmit, response_receive) = flume::unbounded();
 
         let join_handle = spawn(request_receive, response_transmit);
 
@@ -60,13 +64,46 @@ impl HttpGrabber {
             request_transmit,
             response_receive,
             join_handle,
+
+            response_pool: HashMap::new(),
         }
     }
 
-    pub fn poll(&self, url: String) -> HttpResponse {
-        self.request_transmit.send(url)?;
-        let response = self.response_receive.recv()?;
-        response
+    // Send a task to fetch a URL.
+    pub fn send_request(&mut self, url: String) -> Result<()> {
+        //println!("sending request for {:?}", url);
+        if !self.response_pool.contains_key(&url) {
+            self.request_transmit.send(url.clone())?;
+            self.response_pool.insert(url, Poll::Pending);
+        }
+
+        Ok(())
+    }
+
+    // Check if a response has been received.
+    pub async fn poll(&mut self) -> Result<()> {
+        let 
+        while let Some(url) = self.response_receive.into_stream().await {
+
+        }
+        match self.response_receive.recv()? {
+            Poll::Pending => {},
+            Poll::Ready((url, result)) => {
+                self.response_pool.insert(url, Poll::Ready(result));
+            }
+        }
+        Ok(())
+    }
+
+    // Grab from responses if it exists.
+    pub fn grab_response(&mut self, url: &str) -> Poll<Result<Bytes>> {
+        //println!("grabbing: {:?}", url);
+        if let Some(result) = self.response_pool.get(url) {
+            let result = self.response_pool.remove(url).unwrap();
+            result
+        } else {
+            Poll::Pending
+        }
     }
 }
 

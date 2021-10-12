@@ -61,7 +61,7 @@ pub trait Pollable {
     // Might be better to genericize it past just http grabbing for polling, but this is fine for now.
     //
     // Poll responses for http responses, return Ok(true) if done polling.
-    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool>;
+    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool>;
 }
 
 pub trait SetRenderDetails {
@@ -191,7 +191,7 @@ impl EventGrab for Menu {
 }
 
 impl Pollable for Menu {
-    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
+    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.home {
             Some(home) => {
                 let mut done = false;
@@ -202,10 +202,12 @@ impl Pollable for Menu {
                 Ok(done)
             },
             None => {
-                match grabber.poll(HOME_URL.to_owned())? {
+                grabber.send_request(HOME_URL.to_owned())?;
+                match grabber.grab_response(HOME_URL) {
                     Poll::Pending => Ok(false),
                     Poll::Ready(home) => {
                         // Construct initial homepage.
+                        let home = home?;
                         self.home = Some(serde_json::from_slice(home.as_bytes())?);
                         self.construct_home();
                         Ok(false)
@@ -311,7 +313,7 @@ impl EventGrab for Collection {
 }
 
 impl Pollable for Collection {
-    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
+    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         let mut done = false;
         for tile in &mut self.tiles {
             done = done || tile.poll(grabber)?;
@@ -355,12 +357,13 @@ impl Tile {
 }
 
 impl Pollable for Tile {
-    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
+    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.image_bytes {
             Some(_image_bytes) => Ok(true),
             None => {
-                if let Poll::Ready(bytes) = grabber.poll(self.details.url.clone())? {
-                    self.image_bytes = Some(bytes);
+                grabber.send_request(self.details.url.clone());
+                if let Poll::Ready(bytes) = grabber.grab_response(&self.details.url) {
+                    self.image_bytes = Some(bytes?.clone());
                     Ok(true)
                 } else {
                     Ok(false)

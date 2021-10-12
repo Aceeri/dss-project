@@ -101,13 +101,14 @@ impl App {
             window,
             mut renderer,
             mut menu,
-            http_grabber,
+            mut http_grabber,
         } = self;
 
         event_loop.run(move |event, event_loop_window_target, control_flow| {
             *control_flow = ControlFlow::Wait;
 
-            let _result = menu.poll(&http_grabber);
+            let _result = menu.poll(&mut http_grabber);
+            http_grabber.poll();
             menu.set_render_details(&mut renderer);
 
             match event {
