@@ -3,11 +3,12 @@ use glam::Vec2;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use std::task::{Poll};
 use anyhow::Result;
+use image::EncodableLayout;
 
 use crate::{
     grabber::HttpGrabber,
     renderer::{Renderer, ImageInstanceHandle, Instance},
-    home::ImageDetails,
+    home::{ImageDetails, Home},
 };
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
@@ -90,8 +91,42 @@ impl Menu {
 
     pub fn push_collection(&mut self, mut collection: Collection) {
         collection.set_parent_position(&self.absolute_position());
-        //collection.set_position(Vec2::new())
+        collection.set_position(&Vec2::new(0.0, 0.2 * self.collections.len() as f32));
         self.collections.push(collection);
+    }
+
+    pub fn construct_home(&mut self) {
+        println!("constructing home");
+
+        let mut new_collections = Vec::new();
+
+        if let Some(home) = &self.home {
+            for container in &home.data.standard_collection.containers {
+                let mut collection = Collection::new();
+                println!("new collection");
+                
+                if let Some(items) = &container.set.items {
+                    for item in items {
+                        if let Some(image) = item.image.tile.get(ASPECT_RATIO) {
+                            if let Some(series) = &image.series {
+                                if let Some(details) = series.get("default") {
+                                    let mut tile = Tile::new(details.clone());
+                                    tile.size = Vec2::new(0.2, 0.2);
+                                    println!("new tile");
+                                    collection.push_tile(tile);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                new_collections.push(collection);
+            }
+        }
+
+        for new_collection in new_collections {
+            self.push_collection(new_collection);
+        }
     }
 }
 
@@ -157,7 +192,7 @@ impl EventGrab for Menu {
 
 impl Pollable for Menu {
     fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
-        match self.home {
+        match &self.home {
             Some(home) => {
                 let mut done = false;
                 for collection in &mut self.collections {
@@ -167,7 +202,15 @@ impl Pollable for Menu {
                 Ok(done)
             },
             None => {
-                grabber.poll(HOME_URL);
+                match grabber.poll(HOME_URL.to_owned())? {
+                    Poll::Pending => Ok(false),
+                    Poll::Ready(home) => {
+                        // Construct initial homepage.
+                        self.home = Some(serde_json::from_slice(home.as_bytes())?);
+                        self.construct_home();
+                        Ok(false)
+                    }
+                }
             }
         }
     }
@@ -199,7 +242,8 @@ impl Collection {
 
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
-        //collection.set_position(Vec2::new())
+        tile.set_position(&Vec2::new(0.2 * self.tiles.len() as f32, 0.0));
+        println!("{:?}", tile.absolute_position());
         self.tiles.push(tile);
     }
 }
@@ -243,7 +287,6 @@ impl EventGrab for Collection {
                     _ => self.focused_tile,
                 };
 
-                println!("{:?}", self.tiles);
                 if self.tiles.len() > 0 {
                     if new_focused_tile > self.tiles.len() - 1 {
                         new_focused_tile = self.tiles.len() - 1;
@@ -302,7 +345,7 @@ impl Tile {
     pub fn new(details: ImageDetails) -> Self {
         Self {
             position: Position::new(),
-            size: Vec2::ZERO,
+            size: Vec2::new(0.1, 0.1),
 
             image_instance: None,
             image_bytes: None,
@@ -378,6 +421,7 @@ mod test {
     #[test]
     fn hierarchy_test() {
         let mut menu = Menu {
+            home: None,
             position: Position::new(),
             collections: vec![Collection {
                 position: Position::new(),
@@ -385,6 +429,7 @@ mod test {
                     position: Position::new(),
                     size: Vec2::ZERO,
                     image_bytes: None,
+                    image_instance: None,
                     details: ImageDetails {
                         master_width: 0,
                         master_height: 0,

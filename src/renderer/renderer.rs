@@ -476,7 +476,7 @@ impl Renderer {
                 let image = self.images.get(image_instance.image.0);
                 if let Some(image) = image {
                     render_pass.set_bind_group(0, &image.bind_group, &[]);
-                    render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, 0..1);
+                    render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, (image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1));
                 }
             }
         }
