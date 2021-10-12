@@ -1,27 +1,35 @@
-
 use anyhow::Result;
 use wgpu::util::DeviceExt;
 
-use crate::renderer::{Vertex, Renderer};
+use crate::renderer::{Renderer, Vertex};
 
 // Just define a basic quad for tile images.
 pub const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
-    Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
-    Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
-    Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
+    Vertex {
+        position: [-0.5, 0.5, 0.0],
+        tex_coords: [0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        tex_coords: [0.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        tex_coords: [1.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, 0.5, 0.0],
+        tex_coords: [1.0, 0.0],
+    },
 ];
 
 pub const NUM_VERTICES: u32 = VERTICES.len() as u32;
 
 // Having an index buffer saves a little bit on memory bandwidth between cpu and gpu.
 // In this case specifically I don't think it really saves that much, it is saving something
-// like ~8 bytes per image so not super worthwhile, but index buffers have other benefits like 
+// like ~8 bytes per image so not super worthwhile, but index buffers have other benefits like
 // cache locality and seem like better practice IMO.
-pub const INDICES: &[u16] = &[
-    0, 1, 2,
-    2, 3, 0,
-];
+pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 
 pub const NUM_INDICES: u32 = INDICES.len() as u32;
 
@@ -39,15 +47,16 @@ impl ImageMesh {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
-        
-        Ok(ImageMesh { vertex_buffer, index_buffer })
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        Ok(ImageMesh {
+            vertex_buffer,
+            index_buffer,
+        })
     }
 }
 

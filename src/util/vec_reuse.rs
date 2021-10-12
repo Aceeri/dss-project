@@ -1,6 +1,4 @@
-
 use std::collections::HashSet;
-
 
 // Re-claim old spaces, there is probably a library for this but I don't know what it is called so whatever.
 //
@@ -81,7 +79,6 @@ mod test {
 
     #[test]
     fn sanity() {
-
         let mut rvec = ReuseVec::<u32>::new();
 
         rvec.push(1);

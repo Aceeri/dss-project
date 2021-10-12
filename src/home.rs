@@ -6,20 +6,20 @@ use std::collections::HashMap;
 // but don't deserialize into them since I don't know the real schema and don't
 // want this all to fail because something is sometimes not sent, or is an enum, etc.
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Home {
     pub data: Data,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct Data {
     // Maybe this should be an enum?
     pub standard_collection: StandardCollection,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StandardCollection {
     //pub call_to_action: ?,
@@ -32,7 +32,7 @@ pub struct StandardCollection {
     //pub type: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Container {
     pub set: Set,
@@ -40,7 +40,7 @@ pub struct Container {
     pub style: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Set {
     //pub content_class: String,
@@ -50,7 +50,7 @@ pub struct Set {
     //pub style: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Item {
     //call_to_action: ?,
@@ -69,13 +69,13 @@ pub struct Item {
     //video_art: Vec<VideoArt>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageRefs {
     pub tile: HashMap<String, Image>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Image {
     // Maybe an enum?
@@ -83,7 +83,7 @@ pub struct Image {
     pub series: Option<HashMap<String, ImageDetails>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageDetails {
     //master_id: Uuid, // not actually a uuid, probably just a string?
@@ -92,26 +92,26 @@ pub struct ImageDetails {
     pub url: String, // Seems to be resizable based on url encoded parameters.
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VideoArt {
     pub media_metadata: MediaMetadata,
     pub purpose: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaMetadata {
     pub urls: Vec<Url>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Url {
     pub url: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Release {
     pub release_date: String,
@@ -120,7 +120,7 @@ pub struct Release {
     //territory: Option<?>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Rating {
     //advisories: Vec<?>,
@@ -129,14 +129,14 @@ pub struct Rating {
     pub value: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaRights {
     //pub download_blocked: bool,
 //pub pcon_blocked: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tag {
     pub display_name: Option<String>,
@@ -144,21 +144,21 @@ pub struct Tag {
     pub value: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Availability {
     pub region: String,
     //pub kids_mode: bool,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Meta {
     pub hits: u32,
     pub offset: u32,
     pub page_size: u32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionGroup {
     pub collection_group_id: Uuid,
@@ -168,7 +168,7 @@ pub struct CollectionGroup {
 }
 
 // Non human friendly data?
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Slug {
     pub language: String,

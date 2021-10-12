@@ -1,8 +1,7 @@
-
 pub mod renderer;
-pub mod texture;
 pub mod sprite;
+pub mod texture;
 
-pub use renderer::{Renderer, Vertex, Instance};
+pub use renderer::{Instance, Renderer, Vertex};
+pub use sprite::{Image, ImageHandle, ImageMesh};
 pub use texture::Texture;
-pub use sprite::{Image, ImageMesh, ImageHandle};

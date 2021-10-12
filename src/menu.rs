@@ -1,12 +1,18 @@
 
-
 use glam::Vec2;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
+use std::task::{Poll};
+use anyhow::Result;
+
+use crate::{
+    http_grabber::HttpGrabber;
+    home::ImageDetails,
+};
 
 #[derive(Debug, Clone)]
 pub struct Position {
     parent_position: Vec2, // Cumulative position of parents.
-    local_position: Vec2, // Local position relative to parent.
+    local_position: Vec2,  // Local position relative to parent.
 }
 
 impl Position {
@@ -41,7 +47,16 @@ pub trait EventGrab {
     // Pass along events to the UI elements.
     //
     // Return true to consume the event.
-    fn input(&mut self, _event: &WindowEvent) -> bool { false }
+    fn input(&mut self, _event: &WindowEvent) -> bool {
+        false
+    }
+}
+
+pub trait Pollable {
+    // Might be better to genericize it past just http grabbing for polling, but this is fine for now.
+    //
+    // Poll responses for http responses, return Ok(true) if done polling.
+    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool>;
 }
 
 #[derive(Debug, Clone)]
@@ -70,8 +85,12 @@ impl Menu {
 }
 
 impl PositionHierarchy for Menu {
-    fn position(&self) -> &Position { &self.position }
-    fn position_mut(&mut self) -> &mut Position { &mut self.position }
+    fn position(&self) -> &Position {
+        &self.position
+    }
+    fn position_mut(&mut self) -> &mut Position {
+        &mut self.position
+    }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
         for collection in &mut self.collections {
@@ -85,14 +104,13 @@ impl EventGrab for Menu {
         // Take up/down requests so we cycle through collections.
         match event {
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state: ElementState::Pressed,
-                    virtual_keycode: Some(
-                        direction @ VirtualKeyCode::Down |
-                        direction @ VirtualKeyCode::Up
-                    ),
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode:
+                            Some(direction @ VirtualKeyCode::Down | direction @ VirtualKeyCode::Up),
+                        ..
+                    },
                 ..
             } => {
                 println!("menu {:?}", direction);
@@ -101,7 +119,6 @@ impl EventGrab for Menu {
                     VirtualKeyCode::Down => self.focused_collection.saturating_add(1),
                     _ => self.focused_collection,
                 };
-
 
                 if self.collections.len() > 0 {
                     if new_focused_collection > self.collections.len() - 1 {
@@ -115,8 +132,8 @@ impl EventGrab for Menu {
 
                 println!("new focused {:?}", self.focused_collection);
                 return true;
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         if let Some(collection) = self.collections.get_mut(self.focused_collection) {
@@ -124,6 +141,17 @@ impl EventGrab for Menu {
         } else {
             false
         }
+    }
+}
+
+impl Pollable for Menu {
+    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
+        let done = false;
+        for collection in self.collections {
+            done = done || collection.poll(grabber)?;
+        }
+
+        Ok(done)
     }
 }
 
@@ -151,8 +179,12 @@ impl Collection {
 }
 
 impl PositionHierarchy for Collection {
-    fn position(&self) -> &Position { &self.position }
-    fn position_mut(&mut self) -> &mut Position { &mut self.position }
+    fn position(&self) -> &Position {
+        &self.position
+    }
+    fn position_mut(&mut self) -> &mut Position {
+        &mut self.position
+    }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
         for tile in &mut self.tiles {
@@ -166,14 +198,16 @@ impl EventGrab for Collection {
         // Take up/down requests so we cycle through collections.
         match event {
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state: ElementState::Pressed,
-                    virtual_keycode: Some(
-                        direction @ VirtualKeyCode::Left |
-                        direction @ VirtualKeyCode::Right
-                    ),
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode:
+                            Some(
+                                direction @ VirtualKeyCode::Left
+                                | direction @ VirtualKeyCode::Right,
+                            ),
+                        ..
+                    },
                 ..
             } => {
                 println!("collection {:?}", direction);
@@ -182,7 +216,6 @@ impl EventGrab for Collection {
                     VirtualKeyCode::Right => self.focused_tile.saturating_add(1),
                     _ => self.focused_tile,
                 };
-
 
                 println!("{:?}", self.tiles);
                 if self.tiles.len() > 0 {
@@ -196,8 +229,8 @@ impl EventGrab for Collection {
                 self.focused_tile = new_focused_tile;
                 println!("new focused {:?}", self.focused_tile);
                 return true;
-            },
-            _ => {},
+            }
+            _ => {}
         }
 
         if let Some(tile) = self.tiles.get_mut(self.focused_tile) {
@@ -208,24 +241,62 @@ impl EventGrab for Collection {
     }
 }
 
+impl Pollable for Collection {
+    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
+        let done = false;
+        for tile in self.tiles {
+            done = done || tile.poll(grabber)?;
+        }
+
+        Ok(done)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Tile {
     position: Position,
-    //image_instance: ImageInstanceHandle,
+    size: Vec2,
+
+    image_bytes: Option<bytes::Bytes>,
+    details: ImageDetails,
 }
 
 impl Tile {
-    pub fn new() -> Self {
+    pub fn new(details: ImageDetails) -> Self {
         Self {
             position: Position::new(),
+            size: Vec2::ZERO,
+
+            image_bytes: None,
+            details: details,
+        }
+    }
+}
+
+impl Pollable for Tile {
+    fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
+        match self.image_bytes {
+            Some(image_bytes) => Ok(true),
+            None => {
+                if let Poll::Ready(bytes) = grabber.poll(self.details.url)? {
+                    self.image_bytes = Some(bytes);
+                    Ok(true)
+                } else {
+                    Ok(false)
+                }
+            }
         }
     }
 }
 
 impl PositionHierarchy for Tile {
-    fn position(&self) -> &Position { &self.position }
-    fn position_mut(&mut self) -> &mut Position { &mut self.position }
-    fn set_child_positions(&mut self) { }
+    fn position(&self) -> &Position {
+        &self.position
+    }
+    fn position_mut(&mut self) -> &mut Position {
+        &mut self.position
+    }
+    fn set_child_positions(&mut self) {}
 }
 
 impl EventGrab for Tile {
@@ -237,24 +308,27 @@ impl EventGrab for Tile {
 
 #[cfg(test)]
 mod test {
-    use crate::menu::{Position, PositionHierarchy, Menu, Collection, Tile};
+    use crate::menu::{Collection, Menu, Position, PositionHierarchy, Tile};
     use glam::Vec2;
 
     #[test]
     fn hierarchy_test() {
         let mut menu = Menu {
             position: Position::new(),
-            collections: vec![
-                Collection {
+            collections: vec![Collection {
+                position: Position::new(),
+                tiles: vec![Tile {
                     position: Position::new(),
-                    tiles: vec![
-                        Tile {
-                            position: Position::new(),
-                        }
-                    ],
-                    focused_tile: 0,
-                }
-            ],
+                    size: Vec2::ZERO,
+                    image_bytes: None,
+                    details: ImageDetails {
+                        master_width: 0,
+                        master_height: 0,
+                        url: "dummy".to_owned(),
+                    },
+                }],
+                focused_tile: 0,
+            }],
             focused_collection: 0,
         };
 
@@ -270,10 +344,19 @@ mod test {
         assert_eq!(menu.collections[0].tiles[0].absolute_position(), vec_10_10);
 
         menu.collections[0].tiles[0].set_position(&vec_10_10);
-        assert_eq!(menu.collections[0].tiles[0].absolute_position(), Vec2::new(20.0, 20.0));
+        assert_eq!(
+            menu.collections[0].tiles[0].absolute_position(),
+            Vec2::new(20.0, 20.0)
+        );
 
         menu.collections[0].set_position(&vec_10_10);
-        assert_eq!(menu.collections[0].absolute_position(), Vec2::new(20.0, 20.0));
-        assert_eq!(menu.collections[0].tiles[0].absolute_position(), Vec2::new(30.0, 30.0));
+        assert_eq!(
+            menu.collections[0].absolute_position(),
+            Vec2::new(20.0, 20.0)
+        );
+        assert_eq!(
+            menu.collections[0].tiles[0].absolute_position(),
+            Vec2::new(30.0, 30.0)
+        );
     }
 }

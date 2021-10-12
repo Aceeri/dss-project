@@ -12,10 +12,12 @@ extern crate image;
 
 use mimalloc::MiMalloc;
 
+pub mod app;
 pub mod home;
+pub mod image_grabber;
+pub mod menu;
 pub mod renderer;
 pub mod util;
-pub mod menu;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

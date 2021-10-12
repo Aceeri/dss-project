@@ -2,7 +2,7 @@ use anyhow::Result;
 use image::DynamicImage;
 use wgpu::util::DeviceExt;
 use winit::{
-    event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode},
+    event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
     window::Window,
 };
 
@@ -10,7 +10,7 @@ use glam::{Mat4, Vec3};
 
 use std::{collections::HashMap, mem};
 
-use crate::renderer::{Image, ImageMesh, ImageHandle, Texture};
+use crate::renderer::{Image, ImageHandle, ImageMesh, Texture};
 use crate::util::ReuseVec;
 
 #[repr(C)]
@@ -343,7 +343,7 @@ impl Renderer {
             b: 0.0,
             a: 1.0,
         };
-        
+
         let image_mesh = ImageMesh::new(&device)?;
 
         Ok(Self {
@@ -412,11 +412,12 @@ impl Renderer {
                 true
             }
             WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state: ElementState::Pressed,
-                    virtual_keycode: Some(VirtualKeyCode::A),
-                    ..
-                },
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::A),
+                        ..
+                    },
                 ..
             } => {
                 self.instances.push(Instance {
@@ -424,21 +425,28 @@ impl Renderer {
                     size: [0.2, 0.2],
                 });
 
-                self.instance_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Instance Buffer"),
-                    contents: bytemuck::cast_slice(self.instances.current().as_slice()),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
+                self.instance_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Instance Buffer"),
+                            contents: bytemuck::cast_slice(self.instances.current().as_slice()),
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        });
 
                 let texture_bytes = include_bytes!("test.png");
-                let texture = crate::renderer::Texture::from_bytes(&self.device, &self.queue, texture_bytes, "test.png").expect("created fine");
+                let texture = crate::renderer::Texture::from_bytes(
+                    &self.device,
+                    &self.queue,
+                    texture_bytes,
+                    "test.png",
+                )
+                .expect("created fine");
                 let image_handle = self.create_image(texture).unwrap();
 
                 self.image_instances.push(ImageInstance {
                     image: image_handle,
                     instance: InstanceHandle(0),
                 });
-
 
                 true
             }
@@ -493,7 +501,10 @@ impl Renderer {
             // Render Images
             render_pass.set_vertex_buffer(0, self.image_mesh.vertex_buffer.slice(..));
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(self.image_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(
+                self.image_mesh.index_buffer.slice(..),
+                wgpu::IndexFormat::Uint16,
+            );
 
             for image_instance in self.image_instances.iter() {
                 let image = self.images.get(image_instance.image.0);
