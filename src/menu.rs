@@ -422,9 +422,22 @@ impl PositionHierarchy for Tile {
 }
 
 impl EventGrab for Tile {
-    fn input(&mut self, _event: &WindowEvent) -> bool {
-        // Do nothing for now.
-        false
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::LShift),
+                        ..
+                    },
+                ..
+            } => {
+                println!("details: {:?}", self.details.url);
+                true
+            }
+            _ => false,
+        }
     }
 }
 
@@ -493,6 +506,7 @@ mod test {
                     details: dummy_details.clone(),
                 }],
                 focused_tile: 0,
+                selected: false,
             }],
             focused_collection: 0,
         };
