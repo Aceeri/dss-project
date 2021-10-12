@@ -41,13 +41,17 @@ impl Vertex {
     }
 }
 
-pub struct InstanceHandle(u32);
+#[derive(Copy, Clone, Debug)]
+pub struct InstanceHandle(usize);
+
+#[derive(Copy, Clone, Debug)]
+pub struct ImageInstanceHandle(usize);
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Instance {
-    position: [f32; 2],
-    size: [f32; 2],
+    pub position: [f32; 2],
+    pub size: [f32; 2],
 }
 
 impl Instance {
@@ -409,44 +413,6 @@ impl Renderer {
                     b: 0.5,
                     a: 1.0,
                 };
-                true
-            }
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::A),
-                        ..
-                    },
-                ..
-            } => {
-                self.instances.push(Instance {
-                    position: [0.2, 0.2],
-                    size: [0.2, 0.2],
-                });
-
-                self.instance_buffer =
-                    self.device
-                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some("Instance Buffer"),
-                            contents: bytemuck::cast_slice(self.instances.current().as_slice()),
-                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                        });
-
-                let texture_bytes = include_bytes!("test.png");
-                let texture = crate::renderer::Texture::from_bytes(
-                    &self.device,
-                    &self.queue,
-                    texture_bytes,
-                    "test.png",
-                )
-                .expect("created fine");
-                let image_handle = self.create_image(texture).unwrap();
-
-                self.image_instances.push(ImageInstance {
-                    image: image_handle,
-                    instance: InstanceHandle(0),
-                });
 
                 true
             }
@@ -527,16 +493,42 @@ impl Renderer {
         self.size
     }
 
-    /*
-    pub fn create_instance(&self, instance: Instance) -> Result<InstanceHandle> {
-        /*self.instances.push(instance);
-        let handle = InstanceHandle(self.instances.len() as u32);
-        self.instance_index += 1;*/
-        Ok(handle)
+    // TODO: removing instances.
+
+    pub fn create_instance(&mut self, instance: Instance) -> InstanceHandle {
+        let index = self.instances.push(instance);
+
+        // Probably should do some sort of amortized doubling of this buffer here similar to Vecs.
+        self.instance_buffer = self.device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Instance Buffer"),
+                contents: bytemuck::cast_slice(self.instances.current().as_slice()),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            });
+
+        InstanceHandle(index)
     }
 
-    pub fn remove_instance(&self, instance_handle: &InstanceHandle) {
-        self.instances.swap_remove(instance_handle);
+    pub fn create_image_instance(&mut self, image_handle: ImageHandle, instance_handle: InstanceHandle) -> ImageInstanceHandle {
+        let index = self.image_instances.push(ImageInstance {
+            image: image_handle,
+            instance: instance_handle,
+        });
+
+        ImageInstanceHandle(index)
     }
-    */
+
+    pub fn set_instance(&mut self, handle: InstanceHandle, new_instance: Instance) {
+        match self.instances.get_mut(handle.0) {
+            Some(instance) => *instance = new_instance,
+            None => {},
+        }
+    }
+
+    pub fn set_image_instance_position(&mut self, handle: ImageInstanceHandle, new_instance: Instance) {
+        match self.image_instances.get(handle.0) {
+            Some(image_instance) => self.set_instance(image_instance.instance, new_instance),
+            None => {},
+        }
+    }
 }

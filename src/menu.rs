@@ -5,9 +5,13 @@ use std::task::{Poll};
 use anyhow::Result;
 
 use crate::{
-    http_grabber::HttpGrabber;
+    grabber::HttpGrabber,
+    renderer::{Renderer, ImageInstanceHandle, Instance},
     home::ImageDetails,
 };
+
+pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
+pub static ASPECT_RATIO: &'static str = "1.78";
 
 #[derive(Debug, Clone)]
 pub struct Position {
@@ -59,6 +63,10 @@ pub trait Pollable {
     fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool>;
 }
 
+pub trait SetRenderDetails {
+    fn set_render_details(&mut self, renderer: &mut crate::renderer::Renderer);
+}
+
 #[derive(Debug, Clone)]
 pub struct Menu {
     position: Position,
@@ -66,6 +74,8 @@ pub struct Menu {
     // Vertical list of collections, each collection being a group of tiles.
     collections: Vec<Collection>,
     focused_collection: usize,
+
+    home: Option<Home>,
 }
 
 impl Menu {
@@ -74,6 +84,7 @@ impl Menu {
             position: Position::new(),
             collections: Vec::new(),
             focused_collection: 0,
+            home: None,
         }
     }
 
@@ -146,12 +157,27 @@ impl EventGrab for Menu {
 
 impl Pollable for Menu {
     fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
-        let done = false;
-        for collection in self.collections {
-            done = done || collection.poll(grabber)?;
-        }
+        match self.home {
+            Some(home) => {
+                let mut done = false;
+                for collection in &mut self.collections {
+                    done = done || collection.poll(grabber)?;
+                }
 
-        Ok(done)
+                Ok(done)
+            },
+            None => {
+                grabber.poll(HOME_URL);
+            }
+        }
+    }
+}
+
+impl SetRenderDetails for Menu {
+    fn set_render_details(&mut self, renderer: &mut Renderer) {
+        for collection in &mut self.collections {
+            collection.set_render_details(renderer);
+        }
     }
 }
 
@@ -243,12 +269,22 @@ impl EventGrab for Collection {
 
 impl Pollable for Collection {
     fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
-        let done = false;
-        for tile in self.tiles {
+        let mut done = false;
+        for tile in &mut self.tiles {
             done = done || tile.poll(grabber)?;
         }
 
         Ok(done)
+    }
+}
+
+impl SetRenderDetails for Collection {
+    fn set_render_details(&mut self, renderer: &mut Renderer) {
+        // TODO: add text rendering to this.
+
+        for tile in &mut self.tiles {
+            tile.set_render_details(renderer);
+        }
     }
 }
 
@@ -257,6 +293,7 @@ pub struct Tile {
     position: Position,
     size: Vec2,
 
+    image_instance: Option<ImageInstanceHandle>,
     image_bytes: Option<bytes::Bytes>,
     details: ImageDetails,
 }
@@ -267,6 +304,7 @@ impl Tile {
             position: Position::new(),
             size: Vec2::ZERO,
 
+            image_instance: None,
             image_bytes: None,
             details: details,
         }
@@ -275,10 +313,10 @@ impl Tile {
 
 impl Pollable for Tile {
     fn poll(&mut self, grabber: &HttpGrabber) -> Result<bool> {
-        match self.image_bytes {
-            Some(image_bytes) => Ok(true),
+        match &self.image_bytes {
+            Some(_image_bytes) => Ok(true),
             None => {
-                if let Poll::Ready(bytes) = grabber.poll(self.details.url)? {
+                if let Poll::Ready(bytes) = grabber.poll(self.details.url.clone())? {
                     self.image_bytes = Some(bytes);
                     Ok(true)
                 } else {
@@ -306,9 +344,35 @@ impl EventGrab for Tile {
     }
 }
 
+impl SetRenderDetails for Tile {
+    fn set_render_details(&mut self, renderer: &mut Renderer) {
+        match self.image_instance {
+            Some(image_instance) => {
+                renderer.set_image_instance_position(image_instance, Instance {
+                    position: self.absolute_position().into(),
+                    size: self.size.into(),
+                });
+            },
+            None => {
+                let texture_bytes = include_bytes!("renderer/test.png");
+                let texture = crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes, "test.png").expect("created texture");
+
+                let image_handle = renderer.create_image(texture);
+                let instance_handle = renderer.create_instance(Instance {
+                    position: self.absolute_position().into(),
+                    size: self.size.into(),
+                });
+
+                self.image_instance = Some(renderer.create_image_instance(image_handle, instance_handle));
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::menu::{Collection, Menu, Position, PositionHierarchy, Tile};
+    use crate::home::{ImageDetails};
     use glam::Vec2;
 
     #[test]

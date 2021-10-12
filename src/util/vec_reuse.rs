@@ -21,6 +21,10 @@ impl<T> ReuseVec<T> {
         self.current.get(index)
     }
 
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.current.get_mut(index)
+    }
+
     pub fn push(&mut self, item: T) -> usize {
         if let Some(reclaimable_index) = self.reclaim.iter().next().cloned() {
             self.reclaim.remove(&reclaimable_index);

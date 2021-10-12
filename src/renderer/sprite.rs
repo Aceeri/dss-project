@@ -68,7 +68,7 @@ pub struct Image {
 pub struct ImageHandle(pub usize);
 
 impl Renderer {
-    pub fn create_image(&mut self, texture: crate::renderer::Texture) -> Result<ImageHandle> {
+    pub fn create_image(&mut self, texture: crate::renderer::Texture) -> ImageHandle {
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &self.texture_bind_group_layout,
             entries: &[
@@ -90,6 +90,6 @@ impl Renderer {
         };
 
         let index = self.images.push(image);
-        Ok(ImageHandle(index))
+        ImageHandle(index)
     }
 }

@@ -14,7 +14,7 @@ use mimalloc::MiMalloc;
 
 pub mod app;
 pub mod home;
-pub mod image_grabber;
+pub mod grabber;
 pub mod menu;
 pub mod renderer;
 pub mod util;
