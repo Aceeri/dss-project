@@ -389,16 +389,15 @@ impl EventGrab for Tile {
 
 impl SetRenderDetails for Tile {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
-        match self.image_instance {
-            Some(image_instance) => {
-                renderer.set_image_instance_position(image_instance, Instance {
+        match (&self.image_instance, &self.image_bytes) {
+            (Some(image_instance), _) => {
+                renderer.set_image_instance_position(*image_instance, Instance {
                     position: self.absolute_position().into(),
                     size: self.size.into(),
                 });
-            },
-            None => {
-                let texture_bytes = include_bytes!("renderer/test.png");
-                let texture = crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes, "test.png").expect("created texture");
+            }
+            (None, Some(texture_bytes)) => {
+                let texture = crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg").expect("created texture");
 
                 let image_handle = renderer.create_image(texture);
                 let instance_handle = renderer.create_instance(Instance {
@@ -408,6 +407,7 @@ impl SetRenderDetails for Tile {
 
                 self.image_instance = Some(renderer.create_image_instance(image_handle, instance_handle));
             }
+            _ => {}
         }
     }
 }
