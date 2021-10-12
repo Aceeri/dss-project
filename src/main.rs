@@ -1,12 +1,13 @@
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
 
 use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::{WindowBuilder},
 };
+
+use dss::menu::{Menu, EventGrab, Collection, Tile};
+use dss::renderer::{Renderer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +20,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("DSS Project".to_string());
 
     let window = window_builder.build(&event_loop).unwrap();
-    let mut renderer = dss::renderer::Renderer::new(&window).await?;
+    let mut menu = Menu::new();
+    menu.push_collection(Collection::new());
+    let mut renderer = Renderer::new(&window).await?;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
@@ -29,8 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ref event,
                 window_id,
             } if window_id == window.id() => {
-                if !renderer.input(event) {
-                    // give renderer priority over events
+                if !renderer.input(event) && !menu.input(event) {
+                    // give renderer and menu priority over events
                     match event {
                         WindowEvent::CloseRequested
                         | WindowEvent::KeyboardInput {

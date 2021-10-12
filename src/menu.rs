@@ -1,5 +1,7 @@
 
+
 use glam::Vec2;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 pub struct Position {
     parent_position: Vec2, // Cumulative position of parents.
@@ -16,7 +18,7 @@ impl Position {
 }
 
 // Maybe it would be better to just use Rc/Arc and have the children reference the parent's position?
-trait PositionHierarchy {
+pub trait PositionHierarchy {
     fn position(&self) -> &Position;
     fn position_mut(&mut self) -> &mut Position;
     fn absolute_position(&self) -> Vec2 {
@@ -34,10 +36,19 @@ trait PositionHierarchy {
     }
 }
 
+pub trait EventGrab {
+    // Pass along events to the UI elements.
+    //
+    // Return true to consume the event.
+    fn input(&mut self, _event: &WindowEvent) -> bool { false }
+}
+
 pub struct Menu {
     position: Position,
+
     // Vertical list of collections, each collection being a group of tiles.
     collections: Vec<Collection>,
+    focused_collection: usize,
 }
 
 impl Menu {
@@ -45,7 +56,14 @@ impl Menu {
         Menu {
             position: Position::new(),
             collections: Vec::new(),
+            focused_collection: 0,
         }
+    }
+
+    pub fn push_collection(&mut self, mut collection: Collection) {
+        collection.set_parent_position(&self.absolute_position());
+        //collection.set_position(Vec2::new())
+        self.collections.push(collection);
     }
 }
 
@@ -60,9 +78,49 @@ impl PositionHierarchy for Menu {
     }
 }
 
+impl EventGrab for Menu {
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        // Take up/down requests so we cycle through collections.
+        match event {
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(
+                        direction @ VirtualKeyCode::Down |
+                        direction @ VirtualKeyCode::Up
+                    ),
+                    ..
+                },
+                ..
+            } => {
+                println!("menu {:?}", direction);
+                return true;
+            },
+            _ => {},
+        }
+
+        if let Some(collection) = self.collections.get_mut(self.focused_collection) {
+            collection.input(event)
+        } else {
+            false
+        }
+    }
+}
+
 pub struct Collection {
     position: Position,
     tiles: Vec<Tile>,
+    focused_tile: usize,
+}
+
+impl Collection {
+    pub fn new() -> Self {
+        Self {
+            position: Position::new(),
+            tiles: Vec::new(),
+            focused_tile: 0,
+        }
+    }
 }
 
 impl PositionHierarchy for Collection {
@@ -76,6 +134,35 @@ impl PositionHierarchy for Collection {
     }
 }
 
+impl EventGrab for Collection {
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        // Take up/down requests so we cycle through collections.
+        match event {
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(
+                        direction @ VirtualKeyCode::Left |
+                        direction @ VirtualKeyCode::Right
+                    ),
+                    ..
+                },
+                ..
+            } => {
+                println!("collection {:?}", direction);
+                return true;
+            },
+            _ => {},
+        }
+
+        if let Some(tile) = self.tiles.get_mut(self.focused_tile) {
+            tile.input(event)
+        } else {
+            false
+        }
+    }
+}
+
 pub struct Tile {
     position: Position,
     //image_instance: ImageInstanceHandle,
@@ -85,6 +172,13 @@ impl PositionHierarchy for Tile {
     fn position(&self) -> &Position { &self.position }
     fn position_mut(&mut self) -> &mut Position { &mut self.position }
     fn set_child_positions(&mut self) { }
+}
+
+impl EventGrab for Tile {
+    fn input(&mut self, _event: &WindowEvent) -> bool {
+        // Do nothing for now.
+        false
+    }
 }
 
 #[cfg(test)]
@@ -103,9 +197,11 @@ mod test {
                         Tile {
                             position: Position::new(),
                         }
-                    ]
+                    ],
+                    focused_tile: 0,
                 }
-            ]
+            ],
+            focused_collection: 0,
         };
 
         assert_eq!(menu.absolute_position(), Vec2::ZERO);
