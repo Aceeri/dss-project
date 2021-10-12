@@ -202,8 +202,7 @@ impl Pollable for Menu {
                 Ok(done)
             },
             None => {
-                grabber.send_request(HOME_URL.to_owned())?;
-                match grabber.grab_response(HOME_URL) {
+                match grabber.poll_request(HOME_URL.to_owned())? {
                     Poll::Pending => Ok(false),
                     Poll::Ready(home) => {
                         // Construct initial homepage.
@@ -361,8 +360,7 @@ impl Pollable for Tile {
         match &self.image_bytes {
             Some(_image_bytes) => Ok(true),
             None => {
-                grabber.send_request(self.details.url.clone());
-                if let Poll::Ready(bytes) = grabber.grab_response(&self.details.url) {
+                if let Poll::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
                     self.image_bytes = Some(bytes?.clone());
                     Ok(true)
                 } else {

@@ -108,7 +108,6 @@ impl App {
             *control_flow = ControlFlow::Wait;
 
             let _result = menu.poll(&mut http_grabber);
-            http_grabber.poll();
             menu.set_render_details(&mut renderer);
 
             match event {
