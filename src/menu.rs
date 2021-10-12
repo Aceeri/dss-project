@@ -128,6 +128,18 @@ impl Menu {
             self.push_collection(new_collection);
         }
     }
+
+    pub fn set_focused_collection(&mut self, mut index: usize) {
+        if self.collections.len() > 0 {
+            if index > self.collections.len() - 1 {
+                index = self.collections.len();
+            }
+
+            self.collections.get_mut(self.focused_collection).map(|previous| previous.set_selected(false) );
+            self.focused_collection = index;
+            self.collections.get_mut(self.focused_collection).map(|current| current.set_selected(true) );
+        }
+    }
 }
 
 impl PositionHierarchy for Menu {
@@ -174,7 +186,7 @@ impl EventGrab for Menu {
                     new_focused_collection = 0;
                 }
 
-                self.focused_collection = new_focused_collection;
+                self.set_focused_collection(new_focused_collection);
 
                 println!("new focused {:?}", self.focused_collection);
                 return true;
@@ -231,6 +243,7 @@ pub struct Collection {
     position: Position,
     tiles: Vec<Tile>,
     focused_tile: usize,
+    selected: bool,
 }
 
 impl Collection {
@@ -239,27 +252,36 @@ impl Collection {
             position: Position::new(),
             tiles: Vec::new(),
             focused_tile: 0,
+            selected: false,
         }
     }
 
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
         tile.set_position(&Vec2::new(0.1 * self.tiles.len() as f32, 0.0));
-        println!("{:?}", tile.absolute_position());
         self.tiles.push(tile);
         self.set_focused_tile(self.focused_tile);
     }
 
     pub fn set_focused_tile(&mut self, mut index: usize) {
-        if self.tiles.len() > 0 {
-            if index > self.tiles.len() - 1 {
-                index = self.tiles.len();
-            }
+        if self.selected {
+            if self.tiles.len() > 0 {
+                if index > self.tiles.len() - 1 {
+                    index = self.tiles.len();
+                }
 
-            self.tiles.get_mut(self.focused_tile).map(|previous| previous.selected = false);
-            self.focused_tile = index;
-            self.tiles.get_mut(self.focused_tile).map(|current| current.selected = true);
+                self.tiles.get_mut(self.focused_tile).map(|previous| previous.selected = false);
+                self.focused_tile = index;
+                self.tiles.get_mut(self.focused_tile).map(|current| current.selected = true);
+            }
+        } else {
+            self.tiles.get_mut(self.focused_tile).map(|current| current.selected = false);
         }
+    }
+
+    pub fn set_selected(&mut self, selected: bool) {
+        self.selected = selected;
+        self.set_focused_tile(self.focused_tile);
     }
 }
 
