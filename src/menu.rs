@@ -206,6 +206,7 @@ impl Pollable for Menu {
                     Poll::Pending => Ok(false),
                     Poll::Ready(home) => {
                         // Construct initial homepage.
+                        println!("constructing home");
                         let home = home?;
                         self.home = Some(serde_json::from_slice(home.as_bytes())?);
                         self.construct_home();
@@ -398,7 +399,12 @@ impl SetRenderDetails for Tile {
                 });
             }
             (None, Some(texture_bytes)) => {
-                let texture = crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg").expect("created texture");
+                let fallback_bytes = include_bytes!("renderer/test.png");
+                let fallback_texture = crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, fallback_bytes, "fallback.png").expect("created texture");
+                let texture = match crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg") {
+                    Ok(texture) => texture,
+                    Err(_) => fallback_texture,
+                };
 
                 let image_handle = renderer.create_image(texture);
                 let instance_handle = renderer.create_instance(Instance {
