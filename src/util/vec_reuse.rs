@@ -61,6 +61,7 @@ impl<T> IntoIterator for ReuseVec<T> {
     }
 }
 
+#[cfg(test)]
 mod test {
     use crate::util::ReuseVec;
 
