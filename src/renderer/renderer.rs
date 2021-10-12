@@ -1,7 +1,10 @@
 use anyhow::Result;
 use image::DynamicImage;
 use wgpu::util::DeviceExt;
-use winit::{event::WindowEvent, window::Window};
+use winit::{
+    event::{WindowEvent, KeyboardInput, ElementState, VirtualKeyCode},
+    window::Window,
+};
 
 use glam::{Mat4, Vec3};
 
@@ -267,26 +270,11 @@ impl Renderer {
             crate::renderer::Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let aspect_ratio = config.width as f32 / config.height as f32;
-        let instances = (0..2)
-            .flat_map(|y| {
-                (0..2).map(move |x| {
-                    let size_x = 0.20;
-                    let size_y = size_x * aspect_ratio;
-                    Instance {
-                        position: [
-                            x as f32 * (size_x + 0.01) + (size_x / 2.0),
-                            y as f32 * (size_y - 0.01) - (size_y / 2.0),
-                        ],
-                        size: [size_x, size_y],
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
 
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: &[],
-            usage: wgpu::BufferUsages::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -423,6 +411,37 @@ impl Renderer {
                 };
                 true
             }
+            WindowEvent::KeyboardInput {
+                input: KeyboardInput {
+                    state: ElementState::Pressed,
+                    virtual_keycode: Some(VirtualKeyCode::A),
+                    ..
+                },
+                ..
+            } => {
+                self.instances.push(Instance {
+                    position: [0.1, -0.1],
+                    size: [0.2, 0.2],
+                });
+
+                self.instance_buffer = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Instance Buffer"),
+                    contents: bytemuck::cast_slice(self.instances.current().as_slice()),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+
+                let texture_bytes = include_bytes!("test.png");
+                let texture = crate::renderer::Texture::from_bytes(&self.device, &self.queue, texture_bytes, "test.png").expect("created fine");
+                let image_handle = self.create_image(texture).unwrap();
+
+                self.image_instances.push(ImageInstance {
+                    image: image_handle,
+                    instance: InstanceHandle(0),
+                });
+
+
+                true
+            }
             _ => false,
         }
     }
@@ -473,14 +492,16 @@ impl Renderer {
 
             // Render Images
             render_pass.set_vertex_buffer(0, self.image_mesh.vertex_buffer.slice(..));
-            //render_pass.set_vertex_buffer(1, self.instances.slice(..));
+            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.image_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            //for (handle, instance) in self.image_instances.iter() {
-                //let image = &self.get_image(instance.image);
-                //render_pass.set_bind_group(0, &instance.image.bind_group, &[]);
-                //render_pass.draw_indexed(0..crate::renderer::image::NUM_INDICES, 0, 0..1);
-            //}
+            for image_instance in self.image_instances.iter() {
+                let image = self.images.get(image_instance.image.0);
+                if let Some(image) = image {
+                    render_pass.set_bind_group(0, &image.bind_group, &[]);
+                    render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, 0..1);
+                }
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

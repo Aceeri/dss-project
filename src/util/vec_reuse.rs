@@ -1,4 +1,6 @@
 
+use std::collections::HashSet;
+
 
 // Re-claim old spaces, there is probably a library for this but I don't know what it is called so whatever.
 //
@@ -6,28 +8,36 @@
 #[derive(Debug, Clone)]
 pub struct ReuseVec<T> {
     current: Vec<T>,
-    reclaim: Vec<usize>,
+    reclaim: HashSet<usize>,
 }
 
 impl<T> ReuseVec<T> {
     pub fn new() -> ReuseVec<T> {
         ReuseVec {
             current: Vec::new(),
-            reclaim: Vec::new(),
+            reclaim: HashSet::new(),
         }
     }
 
-    pub fn push(&mut self, item: T) {
-        if self.reclaim.len() >= 1 {
-            let index = self.reclaim.swap_remove(0);
-            self.current[index] = item;
+    pub fn get(&self, index: usize) -> Option<&T> {
+        self.current.get(index)
+    }
+
+    pub fn push(&mut self, item: T) -> usize {
+        if let Some(reclaimable_index) = self.reclaim.iter().next().cloned() {
+            self.reclaim.remove(&reclaimable_index);
+            self.current[reclaimable_index] = item;
+            reclaimable_index
         } else {
             self.current.push(item);
+            self.current.len() - 1
         }
     }
 
     pub fn mark_reclaim(&mut self, index: usize) {
-        self.reclaim.push(index);
+        if index < self.current.len() {
+            self.reclaim.insert(index);
+        }
     }
 
     pub fn iter<'a>(&'a self) -> ReuseVecIter<'a, T> {
@@ -35,6 +45,10 @@ impl<T> ReuseVec<T> {
             index: 0,
             reuse_vec: self,
         }
+    }
+
+    pub fn current(&self) -> &Vec<T> {
+        &self.current
     }
 }
 
@@ -78,7 +92,7 @@ mod test {
 
         rvec.mark_reclaim(1);
         assert_eq!(rvec.current.as_slice(), &[1, 2, 3]);
-        assert_eq!(rvec.reclaim.as_slice(), &[1]);
+        assert_eq!(rvec.reclaim.len(), 1);
 
         rvec.push(4);
         assert_eq!(rvec.current.as_slice(), &[1, 4, 3]);
@@ -87,5 +101,13 @@ mod test {
         rvec.push(5);
         assert_eq!(rvec.current.as_slice(), &[1, 4, 3, 5]);
         assert_eq!(rvec.reclaim.len(), 0);
+
+        rvec.mark_reclaim(1);
+        rvec.mark_reclaim(1);
+        assert_eq!(rvec.reclaim.len(), 1);
+        rvec.mark_reclaim(2);
+        assert_eq!(rvec.reclaim.len(), 2);
+        rvec.mark_reclaim(999);
+        assert_eq!(rvec.reclaim.len(), 2);
     }
 }
