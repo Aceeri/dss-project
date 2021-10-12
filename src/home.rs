@@ -1,4 +1,3 @@
-
 use uuid::Uuid;
 
 use std::collections::HashMap;
@@ -15,7 +14,8 @@ pub struct Home {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct Data { // Maybe this should be an enum?
+pub struct Data {
+    // Maybe this should be an enum?
     pub standard_collection: StandardCollection,
 }
 
@@ -77,7 +77,8 @@ pub struct ImageRefs {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Image { // Maybe an enum?
+pub struct Image {
+    // Maybe an enum?
     // Map of aspect ratios to details of image specifics.
     pub series: Option<HashMap<String, ImageDetails>>,
 }
@@ -132,7 +133,7 @@ pub struct Rating {
 #[serde(rename_all = "camelCase")]
 pub struct MediaRights {
     //pub download_blocked: bool,
-    //pub pcon_blocked: bool,
+//pub pcon_blocked: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -198,9 +199,19 @@ mod test {
             .expect("response from url")
             .json::<Home>()
             .expect("working deserialization");
-        
-        let items = home.data.standard_collection.containers[0].set.items.as_ref().expect("expected items");
-        let image = items[0].image.tile.iter().next().expect("expected an image reference").1;
+
+        let items = home.data.standard_collection.containers[0]
+            .set
+            .items
+            .as_ref()
+            .expect("expected items");
+        let image = items[0]
+            .image
+            .tile
+            .iter()
+            .next()
+            .expect("expected an image reference")
+            .1;
         let series = image.series.as_ref().expect("expected series");
         let image_details = series.get("default").expect("expected default tile image");
 

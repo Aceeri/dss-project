@@ -1,14 +1,13 @@
-
 use anyhow::Result;
-use winit::{event::WindowEvent, window::Window};
+use image::DynamicImage;
 use wgpu::util::DeviceExt;
+use winit::{event::WindowEvent, window::Window};
 
 use glam::{Mat4, Vec3};
 
-use std::{
-    mem,
-    collections::HashMap,
-};
+use std::{collections::HashMap, mem};
+
+use crate::renderer::{Image, ImageMesh, ImageHandle, Texture};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -38,23 +37,6 @@ impl Vertex {
     }
 }
 
-// Just define a basic quad for tile images.
-const VERTICES: &[Vertex] = &[
-    Vertex { position: [-0.5, 0.5, 0.0], tex_coords: [0.0, 0.0], },
-    Vertex { position: [-0.5, -0.5, 0.0], tex_coords: [0.0, 1.0], },
-    Vertex { position: [0.5, -0.5, 0.0], tex_coords: [1.0, 1.0], },
-    Vertex { position: [0.5, 0.5, 0.0], tex_coords: [1.0, 0.0], },
-];
-
-// Having an index buffer saves a little bit on memory bandwidth between cpu and gpu.
-// In this case specifically I don't think it really saves that much, it is saving something
-// like ~8 bytes per image so not super worthwhile, but index buffers have other benefits like 
-// cache locality and seem like better practice IMO.
-const INDICES: &[u16] = &[
-    0, 1, 2,
-    2, 3, 0,
-];
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Instance {
@@ -66,24 +48,16 @@ impl Instance {
     fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Instance>() as wgpu::BufferAddress,
-            // We need to switch from using a step mode of Vertex to Instance
-            // This means that our shaders will only change to use the next
-            // instance when the shader starts processing a new instance
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
-                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
-                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
-                    shader_location: 5,
+                    shader_location: 2,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-                // for each vec4. We'll have to reassemble the mat4 in
-                // the shader.
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
-                    shader_location: 6,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float32x2,
                 },
             ],
@@ -128,7 +102,14 @@ impl Camera {
 
     pub fn build_view_matrix(&self) -> Mat4 {
         let view = Mat4::look_at_rh(self.eye, self.target, self.up);
-        let ortho = Mat4::orthographic_rh(self.left, self.right, self.bottom, self.top, self.near, self.far);
+        let ortho = Mat4::orthographic_rh(
+            self.left,
+            self.right,
+            self.bottom,
+            self.top,
+            self.near,
+            self.far,
+        );
         ortho * view
     }
 }
@@ -152,21 +133,28 @@ impl CameraUniform {
     }
 }
 
+pub struct ImageInstance {
+    image: ImageHandle,
+    instance: InstanceHandle,
+}
+
 pub struct Renderer {
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub(crate) surface: wgpu::Surface,
+    pub(crate) device: wgpu::Device,
+    pub(crate) queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
 
-    // Buffers
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
+    pub(crate) images: Vec<Image>,
+    pub(crate) image_index: u32,
+    pub(crate) image_mesh: ImageMesh,
 
-    tile_bind_group: wgpu::BindGroup,
-    tile_texture: HashMap<TextureID, crate::renderer::Texture>,
+    pub(crate) instance: Vec<Instance>,
+    pub(crate) instance_index: u32,
+    pub(crate) instance_buffer: wgpu::Buffer,
+
+    pub(crate) texture_bind_group_layout: wgpu::BindGroupLayout,
 
     depth_texture: crate::renderer::Texture,
 
@@ -179,9 +167,8 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window) -> Result<Self> {
         let size = window.inner_size();
-        let num_vertices = VERTICES.len() as u32;
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
         let surface = unsafe { instance.create_surface(window) };
@@ -233,11 +220,7 @@ impl Renderer {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler {
-                            // This is only for TextureSampleType::Depth
                             comparison: false,
-                            // This should be true if the sample_type of the texture is:
-                            //     TextureSampleType::Float { filterable: true }
-                            // Otherwise you'll get an error.
                             filtering: true,
                         },
                         count: None,
@@ -246,9 +229,9 @@ impl Renderer {
                 label: Some("texture_bind_group_layout"),
             });
 
-        let camera_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
                     ty: wgpu::BindingType::Buffer {
@@ -257,11 +240,9 @@ impl Renderer {
                         min_binding_size: None,
                     },
                     count: None,
-                }
-            ],
-            label: Some("camera_bind_group_layout"),
-        });
-
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
 
         let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
@@ -271,14 +252,35 @@ impl Renderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &texture_bind_group_layout,
-                    &camera_bind_group_layout,
-                ],
+                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
-        let depth_texture = crate::renderer::Texture::create_depth_texture(&device, &config, "depth_texture");
+        let depth_texture =
+            crate::renderer::Texture::create_depth_texture(&device, &config, "depth_texture");
+
+        let aspect_ratio = config.width as f32 / config.height as f32;
+        let instances = (0..2)
+            .flat_map(|y| {
+                (0..2).map(move |x| {
+                    let size_x = 0.20;
+                    let size_y = size_x * aspect_ratio;
+                    Instance {
+                        position: [
+                            x as f32 * (size_x + 0.01) + (size_x / 2.0),
+                            y as f32 * (size_y - 0.01) - (size_y / 2.0),
+                        ],
+                        size: [size_x, size_y],
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Texture Instance Buffer"),
+            contents: bytemuck::cast_slice(&instances),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
@@ -321,83 +323,22 @@ impl Renderer {
             },
         });
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(INDICES),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
-        let num_indices = INDICES.len() as u32;
-
-        let diffuse_bytes = include_bytes!("test.png");
-        let diffuse_texture =
-            crate::renderer::Texture::from_bytes(&device, &queue, diffuse_bytes, "test.png")
-                .unwrap();
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
-
-        let aspect_ratio = config.width as f32 / config.height as f32;
-        let texture_instances = (0..2).flat_map(|y| {
-            (0..2).map(move |x| {
-                let size_x = 0.20;
-                let size_y = size_x * aspect_ratio;
-                Instance {
-                    position: [x as f32 * (size_x + 0.01) + (size_x / 2.0), y as f32 * (-size_y - 0.01) - (size_y / 2.0)],
-                    size: [size_x, size_y],
-                }
-            })
-        }).collect::<Vec<_>>();
-
-        println!("instance: {:?}", texture_instances);
-
-        let texture_instance_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Texture Instance Buffer"),
-                contents: bytemuck::cast_slice(&texture_instances),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
-
         let camera = Camera::new(config.width as f32, config.height as f32);
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.set_view_matrix(&camera);
 
-        let camera_buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[camera_uniform]),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            }
-        );
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &camera_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                }
-            ],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
             label: Some("camera_bind_group"),
         });
 
@@ -407,8 +348,10 @@ impl Renderer {
             b: 0.0,
             a: 1.0,
         };
+        
+        let image_mesh = ImageMesh::new(&device)?;
 
-        Self {
+        Ok(Self {
             surface,
             device,
             queue,
@@ -416,16 +359,15 @@ impl Renderer {
             size,
             render_pipeline,
 
-            vertex_buffer,
-            index_buffer,
-            num_indices,
+            images: Vec::new(),
+            image_index: 0,
+            image_mesh,
+            texture_bind_group_layout,
 
-            diffuse_bind_group,
-            diffuse_texture,
+            instances,
+            instance_index: 0,
+            instance_buffer,
 
-            texture_instances,
-            texture_instance_buffer,
-            
             camera,
             camera_uniform,
             camera_buffer,
@@ -434,7 +376,7 @@ impl Renderer {
             depth_texture,
 
             clear_color,
-        }
+        })
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -443,12 +385,22 @@ impl Renderer {
             self.config.width = new_size.width;
             self.config.height = new_size.height;
 
+            // Fix aspect ratio for our camera.
             self.camera = Camera::new(new_size.width as f32, new_size.height as f32);
             self.camera_uniform.set_view_matrix(&self.camera);
 
-            self.depth_texture = crate::renderer::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
+            // Depth texture is the same size as our screen so we need to resize it.
+            self.depth_texture = crate::renderer::Texture::create_depth_texture(
+                &self.device,
+                &self.config,
+                "depth_texture",
+            );
 
-            self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_uniform]));
+            self.queue.write_buffer(
+                &self.camera_buffer,
+                0,
+                bytemuck::cast_slice(&[self.camera_uniform]),
+            );
             self.surface.configure(&self.device, &self.config);
         }
     }
@@ -505,18 +457,23 @@ impl Renderer {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer( self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
 
             // Ideally we would batch this into a single draw call by using texture atlases/arrays but
             // for the sake of simplicity going to just do a draw call per tile image.
             //
-            // Could also have some fun with multithreading this although I don't know how much performance
-            // that would really save here.
+            // Could also have some fun with multithreading these draw calls although I don't know how much performance
+            // that would really save in this case.
 
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.texture_instances.len() as _);
+            // Render Images
+            render_pass.set_vertex_buffer(0, self.image_mesh.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.image_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+            for image in self.images {
+                render_pass.set_vertex_buffer(1, self.image_mesh.position.slice(..));
+                render_pass.set_bind_group(0, &image.bind_group, &[]);
+                render_pass.draw_indexed(0..crate::renderer::image::NUM_INDICES, 0, 0..1);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -530,11 +487,4 @@ impl Renderer {
     pub fn size(&self) -> winit::dpi::PhysicalSize<u32> {
         self.size
     }
-
-    /*
-    pub fn create_image_instance(&mut self, image: &[u8]) -> Result<TextureHandle> {
-        self.texture_index += 1;
-        Ok(TextureHandle(self.texture_index));
-    }
-    */
 }
