@@ -56,11 +56,11 @@ pub struct Image {
     pub bind_group: wgpu::BindGroup,
 }
 
-pub struct ImageHandle(u32);
+pub struct ImageHandle(usize);
 
 impl Renderer {
-    pub fn create_texture(&mut self, image: &image::DynamicImage) -> Result<ImageHandle> {
-        let texture = crate::renderer::Texture::from_image(&self.device, &self.queue, image, "test.png")?;
+    pub fn create_texture(&mut self, image: &image::DynamicImage, label: Option<&str>) -> Result<ImageHandle> {
+        let texture = crate::renderer::Texture::from_image(&self.device, &self.queue, image, label)?;
 
         let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &self.texture_bind_group_layout,
@@ -82,8 +82,9 @@ impl Renderer {
             texture,
         };
 
-        let handle = ImageHandle(self.image_index);
-        self.image_index += 1;
+        //let handle = ImageHandle(self.images.len());
+        //self.images.push(image);
+        let handle = ImageHandle(1);
         Ok(handle)
     }
 }

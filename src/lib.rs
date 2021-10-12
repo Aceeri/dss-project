@@ -14,6 +14,7 @@ use mimalloc::MiMalloc;
 
 pub mod home;
 pub mod renderer;
+pub mod util;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;

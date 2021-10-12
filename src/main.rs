@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_title("DSS Project".to_string());
 
     let window = window_builder.build(&event_loop).unwrap();
-    let mut renderer = dss::renderer::Renderer::new(&window).await;
+    let mut renderer = dss::renderer::Renderer::new(&window).await?;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;

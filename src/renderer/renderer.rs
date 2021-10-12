@@ -8,6 +8,7 @@ use glam::{Mat4, Vec3};
 use std::{collections::HashMap, mem};
 
 use crate::renderer::{Image, ImageMesh, ImageHandle, Texture};
+use crate::util::ReuseVec;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -36,6 +37,8 @@ impl Vertex {
         }
     }
 }
+
+pub struct InstanceHandle(u32);
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -138,6 +141,10 @@ pub struct ImageInstance {
     instance: InstanceHandle,
 }
 
+pub trait Drawable {
+    fn draw(&self, renderer: &Renderer) -> Result<()>;
+}
+
 pub struct Renderer {
     pub(crate) surface: wgpu::Surface,
     pub(crate) device: wgpu::Device,
@@ -146,13 +153,13 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
 
-    pub(crate) images: Vec<Image>,
-    pub(crate) image_index: u32,
+    pub(crate) images: ReuseVec<Image>,
     pub(crate) image_mesh: ImageMesh,
 
-    pub(crate) instance: Vec<Instance>,
-    pub(crate) instance_index: u32,
+    pub(crate) instances: ReuseVec<Instance>,
     pub(crate) instance_buffer: wgpu::Buffer,
+
+    image_instances: ReuseVec<ImageInstance>,
 
     pub(crate) texture_bind_group_layout: wgpu::BindGroupLayout,
 
@@ -277,8 +284,8 @@ impl Renderer {
             .collect::<Vec<_>>();
 
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Texture Instance Buffer"),
-            contents: bytemuck::cast_slice(&instances),
+            label: Some("Instance Buffer"),
+            contents: &[],
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -359,13 +366,13 @@ impl Renderer {
             size,
             render_pipeline,
 
-            images: Vec::new(),
-            image_index: 0,
+            images: ReuseVec::new(),
             image_mesh,
             texture_bind_group_layout,
 
-            instances,
-            instance_index: 0,
+            image_instances: ReuseVec::new(),
+
+            instances: ReuseVec::new(),
             instance_buffer,
 
             camera,
@@ -458,7 +465,6 @@ impl Renderer {
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
-
             // Ideally we would batch this into a single draw call by using texture atlases/arrays but
             // for the sake of simplicity going to just do a draw call per tile image.
             //
@@ -467,13 +473,14 @@ impl Renderer {
 
             // Render Images
             render_pass.set_vertex_buffer(0, self.image_mesh.vertex_buffer.slice(..));
+            //render_pass.set_vertex_buffer(1, self.instances.slice(..));
             render_pass.set_index_buffer(self.image_mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            for image in self.images {
-                render_pass.set_vertex_buffer(1, self.image_mesh.position.slice(..));
-                render_pass.set_bind_group(0, &image.bind_group, &[]);
-                render_pass.draw_indexed(0..crate::renderer::image::NUM_INDICES, 0, 0..1);
-            }
+            //for (handle, instance) in self.image_instances.iter() {
+                //let image = &self.get_image(instance.image);
+                //render_pass.set_bind_group(0, &instance.image.bind_group, &[]);
+                //render_pass.draw_indexed(0..crate::renderer::image::NUM_INDICES, 0, 0..1);
+            //}
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -487,4 +494,17 @@ impl Renderer {
     pub fn size(&self) -> winit::dpi::PhysicalSize<u32> {
         self.size
     }
+
+    /*
+    pub fn create_instance(&self, instance: Instance) -> Result<InstanceHandle> {
+        /*self.instances.push(instance);
+        let handle = InstanceHandle(self.instances.len() as u32);
+        self.instance_index += 1;*/
+        Ok(handle)
+    }
+
+    pub fn remove_instance(&self, instance_handle: &InstanceHandle) {
+        self.instances.swap_remove(instance_handle);
+    }
+    */
 }
