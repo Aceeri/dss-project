@@ -21,7 +21,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let window = window_builder.build(&event_loop).unwrap();
     let mut menu = Menu::new();
-    menu.push_collection(Collection::new());
+    {
+        let mut collection = Collection::new();
+        collection.push_tile(Tile::new());
+        collection.push_tile(Tile::new());
+        collection.push_tile(Tile::new());
+        menu.push_collection(collection);
+    }
+
+    {
+        let mut collection = Collection::new();
+        collection.push_tile(Tile::new());
+        menu.push_collection(collection);
+    }
+
+    {
+        let mut collection = Collection::new();
+        collection.push_tile(Tile::new());
+        collection.push_tile(Tile::new());
+        collection.push_tile(Tile::new());
+        collection.push_tile(Tile::new());
+        collection.push_tile(Tile::new());
+        menu.push_collection(collection);
+    }
+
     let mut renderer = Renderer::new(&window).await?;
 
     event_loop.run(move |event, _, control_flow| {
