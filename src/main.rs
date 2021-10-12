@@ -47,9 +47,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut renderer = Renderer::new(&window).await?;
 
-    event_loop.run(move |event, _, control_flow| {
+    event_loop.run(move |event, event_loop_window_target, control_flow| {
         *control_flow = ControlFlow::Wait;
 
+        
         match event {
             Event::WindowEvent {
                 ref event,
@@ -68,6 +69,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 },
                             ..
                         } => *control_flow = ControlFlow::Exit,
+
+                        WindowEvent::KeyboardInput {
+                            input: KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::F11),
+                                ..
+                            },
+                            ..
+                        } => {
+
+                            if window.fullscreen().is_some() {
+                                window.set_fullscreen(None);
+                            } else {
+                                if let Some(monitor) = event_loop_window_target.primary_monitor() {
+                                    if let Some(video_mode) = monitor.video_modes().next() {
+                                        window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(video_mode)));
+                                    }
+                                }
+                            }
+                        }
 
                         WindowEvent::Resized(physical_size) => {
                             renderer.resize(*physical_size);
