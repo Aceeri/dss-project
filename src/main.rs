@@ -1,4 +1,5 @@
 
+use tokio::stream;
 use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
@@ -12,6 +13,11 @@ use dss::renderer::{Renderer};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
+
+    let client = reqwest::Client::new();
+    let home_url = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
+
+    let image_grabber = ImageGrabber::new();
 
     let event_loop = EventLoop::new();
     let window_builder = WindowBuilder::new()

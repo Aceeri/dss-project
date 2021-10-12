@@ -420,7 +420,7 @@ impl Renderer {
                 ..
             } => {
                 self.instances.push(Instance {
-                    position: [0.1, -0.1],
+                    position: [0.2, 0.2],
                     size: [0.2, 0.2],
                 });
 
