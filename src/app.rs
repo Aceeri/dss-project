@@ -73,7 +73,7 @@ impl App {
             if !done_polling {
                 done_polling = menu.poll(&mut http_grabber).expect("polling failed");
             } else {
-                menu.set_render_details(&mut renderer);
+                //menu.set_render_details(&mut renderer);
             }
 
             match event {
@@ -81,7 +81,14 @@ impl App {
                     ref event,
                     window_id,
                 } if window_id == window.id() => {
-                    if !renderer.input(event) && !menu.input(event) {
+                    let renderer_consumed = renderer.input(event);
+                    let menu_consumed = menu.input(event);
+
+                    if menu_consumed {
+                        menu.set_render_details(&mut renderer);
+                    }
+
+                    if !renderer_consumed && !menu_consumed {
                         // give renderer and menu priority over events
                         match event {
                             WindowEvent::CloseRequested

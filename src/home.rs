@@ -72,15 +72,26 @@ pub struct Item {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImageRefs {
+    // Map of aspect ratios to details of image specifics.
     pub tile: HashMap<String, Image>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Image {
-    // Maybe an enum?
-    // Map of aspect ratios to details of image specifics.
-    pub series: Option<HashMap<String, ImageDetails>>,
+pub enum Image {
+    Default { default: ImageDetails },
+    Series { default: ImageDetails },
+    Program { default: ImageDetails },
+}
+
+impl Image {
+    pub fn details(&self) -> &ImageDetails {
+        match self {
+            Image::Default { default } => default,
+            Image::Series { default } => default,
+            Image::Program { default } => default,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -212,9 +223,8 @@ mod test {
             .next()
             .expect("expected an image reference")
             .1;
-        let series = image.series.as_ref().expect("expected series");
-        let image_details = series.get("default").expect("expected default tile image");
 
+        let image_details = image.details();
         println!("{:?}", image_details);
         let bytes = reqwest::blocking::get(&image_details.url)
             .expect("response from url")

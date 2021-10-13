@@ -78,6 +78,7 @@ pub struct Menu {
     // Vertical list of collections, each collection being a group of tiles.
     collections: Vec<Collection>,
     focused_collection: usize,
+    focused_tile: usize,
 
     home: Option<Home>,
 }
@@ -112,14 +113,11 @@ impl Menu {
                     for item in items {
                         // Get images with the aspect ratio we want.
                         if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
-                            if let Some(series) = &image.series {
-                                if let Some(details) = series.get("default") {
-                                    let mut tile = Tile::new(details.clone());
-                                    tile.size = Vec2::new(1.78, 1.0);
-                                    println!("new tile");
-                                    collection.push_tile(tile);
-                                }
-                            }
+                            let details = image.details();
+                            let mut tile = Tile::new(details.clone());
+                            tile.size = Vec2::new(1.78, 1.0);
+                            println!("new tile");
+                            collection.push_tile(tile);
                         }
                     }
                 }
