@@ -7,7 +7,7 @@ use image::EncodableLayout;
 
 use crate::{
     grabber::HttpGrabber,
-    renderer::{Renderer, ImageInstanceHandle, Instance},
+    renderer::{Renderer, ImageInstanceHandle, Instance, Texture},
     home::{ImageDetails, Home},
 };
 
@@ -89,6 +89,7 @@ impl Menu {
             position: Position::new(),
             collections: Vec::new(),
             focused_collection: 0,
+            focused_tile: 0,
             home: None,
         }
     }
@@ -131,15 +132,20 @@ impl Menu {
         }
     }
 
-    pub fn set_focused_collection(&mut self, mut index: usize) {
-        if self.collections.len() > 0 {
-            if index > self.collections.len() - 1 {
-                index = self.collections.len();
+    pub fn set_focused_tile(&mut self, collection_index: usize, tile_index: usize) {
+        if let Some(collection) = self.collections.get_mut(self.focused_collection) {
+            if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
+                tile.selected = false;
             }
+        }
 
-            self.collections.get_mut(self.focused_collection).map(|previous| previous.set_selected(false) );
-            self.focused_collection = index;
-            self.collections.get_mut(self.focused_collection).map(|current| current.set_selected(true) );
+        self.focused_collection = collection_index;
+        self.focused_tile = tile_index;
+
+        if let Some(collection) = self.collections.get_mut(self.focused_collection) {
+            if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
+                tile.selected = true;
+            }
         }
     }
 }
@@ -168,27 +174,43 @@ impl EventGrab for Menu {
                     KeyboardInput {
                         state: ElementState::Pressed,
                         virtual_keycode:
-                            Some(direction @ VirtualKeyCode::Down | direction @ VirtualKeyCode::Up),
+                            Some(
+                                direction @ VirtualKeyCode::Down |
+                                direction @ VirtualKeyCode::Up |
+                                direction @ VirtualKeyCode::Left |
+                                direction @ VirtualKeyCode::Right
+                            ),
                         ..
                     },
                 ..
             } => {
                 println!("menu {:?}", direction);
-                let mut new_focused_collection = match direction {
-                    VirtualKeyCode::Up => self.focused_collection.saturating_sub(1),
-                    VirtualKeyCode::Down => self.focused_collection.saturating_add(1),
-                    _ => self.focused_collection,
+                let mut new_focused_tile = self.focused_tile;
+                let mut new_focused_collection = self.focused_collection;
+
+                match direction {
+                    VirtualKeyCode::Up => new_focused_collection = new_focused_collection.saturating_sub(1),
+                    VirtualKeyCode::Down => new_focused_collection = new_focused_collection.saturating_add(1),
+                    VirtualKeyCode::Left => new_focused_tile = new_focused_tile.saturating_sub(1),
+                    VirtualKeyCode::Right => new_focused_tile = new_focused_tile.saturating_add(1),
+                    _ => { },
                 };
 
                 if self.collections.len() > 0 {
                     if new_focused_collection > self.collections.len() - 1 {
                         new_focused_collection = self.collections.len() - 1;
                     }
+
+                    let focused_tiles = self.collections[new_focused_collection].tiles.len();
+                    if focused_tiles > 0 && new_focused_tile > focused_tiles - 1 {
+                        new_focused_tile = focused_tiles - 1;
+                    }
                 } else {
                     new_focused_collection = 0;
+                    new_focused_tile = 0;
                 }
 
-                self.set_focused_collection(new_focused_collection);
+                self.set_focused_tile(new_focused_collection, new_focused_tile);
 
                 println!("new focused {:?}", self.focused_collection);
                 return true;
@@ -197,7 +219,15 @@ impl EventGrab for Menu {
         }
 
         if let Some(collection) = self.collections.get_mut(self.focused_collection) {
-            collection.input(event)
+            if !collection.input(event) {
+                if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
+                    tile.input(event)
+                } else {
+                    false
+                }
+            } else {
+                true
+            }
         } else {
             false
         }
@@ -244,7 +274,6 @@ impl SetRenderDetails for Menu {
 pub struct Collection {
     position: Position,
     tiles: Vec<Tile>,
-    focused_tile: usize,
     selected: bool,
 }
 
@@ -253,7 +282,6 @@ impl Collection {
         Self {
             position: Position::new(),
             tiles: Vec::new(),
-            focused_tile: 0,
             selected: false,
         }
     }
@@ -262,28 +290,6 @@ impl Collection {
         tile.set_parent_position(&self.absolute_position());
         tile.set_position(&Vec3::new((ASPECT_RATIO + TILE_SPACING) * self.tiles.len() as f32, 0.0, 0.0));
         self.tiles.push(tile);
-        self.set_focused_tile(self.focused_tile);
-    }
-
-    pub fn set_focused_tile(&mut self, mut index: usize) {
-        if self.selected {
-            if self.tiles.len() > 0 {
-                if index > self.tiles.len() - 1 {
-                    index = self.tiles.len();
-                }
-
-                self.tiles.get_mut(self.focused_tile).map(|previous| previous.selected = false);
-                self.focused_tile = index;
-                self.tiles.get_mut(self.focused_tile).map(|current| current.selected = true);
-            }
-        } else {
-            self.tiles.get_mut(self.focused_tile).map(|current| current.selected = false);
-        }
-    }
-
-    pub fn set_selected(&mut self, selected: bool) {
-        self.selected = selected;
-        self.set_focused_tile(self.focused_tile);
     }
 }
 
@@ -304,48 +310,7 @@ impl PositionHierarchy for Collection {
 
 impl EventGrab for Collection {
     fn input(&mut self, event: &WindowEvent) -> bool {
-        // Take up/down requests so we cycle through collections.
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode:
-                            Some(
-                                direction @ VirtualKeyCode::Left
-                                | direction @ VirtualKeyCode::Right,
-                            ),
-                        ..
-                    },
-                ..
-            } => {
-                println!("collection {:?}", direction);
-                let mut new_focused_tile = match direction {
-                    VirtualKeyCode::Left => self.focused_tile.saturating_sub(1),
-                    VirtualKeyCode::Right => self.focused_tile.saturating_add(1),
-                    _ => self.focused_tile,
-                };
-
-                if self.tiles.len() > 0 {
-                    if new_focused_tile > self.tiles.len() - 1 {
-                        new_focused_tile = self.tiles.len() - 1;
-                    }
-                } else {
-                    new_focused_tile = 0;
-                }
-
-                self.set_focused_tile(new_focused_tile);
-                println!("new focused {:?}", self.focused_tile);
-                return true;
-            }
-            _ => {}
-        }
-
-        if let Some(tile) = self.tiles.get_mut(self.focused_tile) {
-            tile.input(event)
-        } else {
-            false
-        }
+        false
     }
 }
 
@@ -461,11 +426,12 @@ impl SetRenderDetails for Tile {
                 });
             }
             (None, Some(texture_bytes)) => {
-                let fallback_bytes = include_bytes!("renderer/test.png");
-                let fallback_texture = crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, fallback_bytes, "fallback.png").expect("created texture");
-                let texture = match crate::renderer::Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg") {
+                let texture = match Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg") {
                     Ok(texture) => texture,
-                    Err(_) => fallback_texture,
+                    Err(_) => {
+                        let fallback_bytes = include_bytes!("renderer/test.png");
+                        Texture::from_bytes(&renderer.device, &renderer.queue, fallback_bytes, "fallback.png").expect("created texture")
+                    },
                 };
 
                 let image_handle = renderer.create_image(texture);
