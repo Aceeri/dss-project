@@ -69,6 +69,9 @@ pub trait Pollable {
 
 pub trait SetRenderDetails {
     fn set_render_details(&mut self, renderer: &mut crate::renderer::Renderer);
+
+    // Only set portions of the renderer every frame instead of all at once.
+    fn partial_set_render_details(&mut self, renderer: &mut crate::renderer::Renderer) { self.set_render_details(renderer); }
 }
 
 #[derive(Debug, Clone)]
@@ -79,6 +82,13 @@ pub struct Menu {
     collections: Vec<Collection>,
     focused_collection: usize,
     focused_tile: usize,
+
+    // Indices of collections and tiles to iterate through slowly for rendering.
+    partial_collection: usize,
+    partial_tile: usize,
+
+    // List of tiles that need to be re-rendered immediately.
+    dirty_list: Vec<usize>,
 
     home: Option<Home>,
 }
@@ -91,6 +101,10 @@ impl Menu {
             focused_collection: 0,
             focused_tile: 0,
             home: None,
+
+            partial_collection: 0,
+            partial_tile: 0,
+            dirty_list: Vec::new(),
         }
     }
 
@@ -136,6 +150,7 @@ impl Menu {
         if let Some(collection) = self.collections.get_mut(self.focused_collection) {
             if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
                 tile.selected = false;
+                collection.dirty_list.push(self.focused_tile);
             }
         }
 
@@ -145,9 +160,11 @@ impl Menu {
         if let Some(collection) = self.collections.get_mut(self.focused_collection) {
             if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
                 tile.selected = true;
+                collection.dirty_list.push(self.focused_tile);
             }
         }
     }
+
 }
 
 impl PositionHierarchy for Menu {
@@ -211,8 +228,6 @@ impl EventGrab for Menu {
                 }
 
                 self.set_focused_tile(new_focused_collection, new_focused_tile);
-
-                println!("new focused {:?}", self.focused_collection);
                 return true;
             }
             _ => {}
@@ -268,6 +283,29 @@ impl SetRenderDetails for Menu {
             collection.set_render_details(renderer);
         }
     }
+
+    fn partial_set_render_details(&mut self, renderer: &mut Renderer) {
+        if let Some(collection) = self.collections.get_mut(self.partial_collection) {
+            collection.partial_set_render_details(renderer);
+
+            if let Some(tile) = collection.tiles.get_mut(self.partial_tile) {
+                tile.set_render_details(renderer);
+                self.partial_tile += 1;
+            }
+
+            if self.partial_tile >= collection.tiles.len() {
+                self.partial_tile = 0;
+                self.partial_collection += 1;
+
+                if self.partial_collection >= self.collections.len() {
+                    self.partial_collection = 0;
+                }
+            }
+        } else {
+            self.partial_tile = 0;
+            self.partial_collection = 0;
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -275,6 +313,8 @@ pub struct Collection {
     position: Position,
     tiles: Vec<Tile>,
     selected: bool,
+
+    dirty_list: Vec<usize>,
 }
 
 impl Collection {
@@ -283,6 +323,8 @@ impl Collection {
             position: Position::new(),
             tiles: Vec::new(),
             selected: false,
+            
+            dirty_list: Vec::new(),
         }
     }
 
@@ -331,6 +373,12 @@ impl SetRenderDetails for Collection {
 
         for tile in &mut self.tiles {
             tile.set_render_details(renderer);
+        }
+    }
+
+    fn partial_set_render_details(&mut self, renderer: &mut Renderer) {
+        if let Some(index) = self.dirty_list.pop() {
+            self.tiles.get_mut(index).map(|tile| tile.set_render_details(renderer));
         }
     }
 }
@@ -475,10 +523,10 @@ mod test {
                     image_instance: None,
                     details: dummy_details.clone(),
                 }],
-                focused_tile: 0,
                 selected: false,
             }],
             focused_collection: 0,
+            focused_tile: 0,
         };
 
         assert_eq!(menu.absolute_position(), Vec3::ZERO);

@@ -67,13 +67,23 @@ impl App {
 
         let mut done_polling = false;
 
+        let mut counter = 0;
+
         event_loop.run(move |event, event_loop_window_target, control_flow| {
             *control_flow = ControlFlow::Wait;
 
             if !done_polling {
                 done_polling = menu.poll(&mut http_grabber).expect("polling failed");
-            } else {
-                //menu.set_render_details(&mut renderer);
+            }
+
+            counter += 1;
+            menu.partial_set_render_details(&mut renderer);
+
+            // Only update every once in a while, works out somewhat nicely if the machine has really bad specs because it will slow down the calls with that.
+            match counter {
+                counter if counter % 50 == 0 => menu.partial_set_render_details(&mut renderer),
+                //counter if counter % 100 == 0 => menu.set_render_details(&mut renderer),
+                _ => {},
             }
 
             match event {
