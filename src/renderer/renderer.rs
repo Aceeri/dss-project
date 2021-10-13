@@ -50,7 +50,7 @@ pub struct ImageInstanceHandle(usize);
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Instance {
-    pub position: [f32; 2],
+    pub position: [f32; 3],
     pub size: [f32; 2],
 }
 
@@ -63,10 +63,10 @@ impl Instance {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 2,
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32x2,
                 },
@@ -88,25 +88,30 @@ pub struct Camera {
     pub top: f32,
     pub near: f32,
     pub far: f32,
+
+    pub aspect_ratio: f32,
 }
 
 impl Camera {
     pub fn new(width: f32, height: f32) -> Self {
         let aspect_ratio = width / height;
+        let scaling = 10.0; // Just make things a bit easier to work with.
         Self {
             // Back up 1 so we can actually see the images.
-            eye: (0.0, 0.0, 1.0).into(),
+            eye: (0.0, 0.0, 100.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::Y,
 
             // Scale vertically and have it "anchor" at the top left.
             left: 0.0,
-            right: aspect_ratio,
+            right: aspect_ratio * scaling,
             top: 0.0,
-            bottom: -1.0,
+            bottom: -1.0 * scaling,
 
             near: 0.0,
             far: 1000.0,
+
+            aspect_ratio,
         }
     }
 
@@ -129,17 +134,20 @@ impl Camera {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     view_matrix: [[f32; 4]; 4],
+    aspect_ratio: f32,
 }
 
 impl CameraUniform {
     pub fn new() -> Self {
         Self {
             view_matrix: Mat4::IDENTITY.to_cols_array_2d(),
+            aspect_ratio: 1.0,
         }
     }
 
     pub fn set_view_matrix(&mut self, camera: &Camera) {
         self.view_matrix = camera.build_view_matrix().to_cols_array_2d();
+        self.aspect_ratio = camera.aspect_ratio;
     }
 }
 

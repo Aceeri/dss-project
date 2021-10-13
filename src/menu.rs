@@ -1,5 +1,5 @@
 
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use std::task::{Poll};
 use anyhow::Result;
@@ -12,19 +12,22 @@ use crate::{
 };
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
-pub static ASPECT_RATIO: &'static str = "1.78";
+pub static ASPECT_RATIO_STRING: &'static str = "1.78";
+pub const ASPECT_RATIO: f32 = 1.78;
+pub const TILE_SPACING: f32 = 0.2;
+pub const COLLECTION_SPACING: f32 = 0.5;
 
 #[derive(Debug, Clone)]
 pub struct Position {
-    parent_position: Vec2, // Cumulative position of parents.
-    local_position: Vec2,  // Local position relative to parent.
+    parent_position: Vec3, // Cumulative position of parents.
+    local_position: Vec3,  // Local position relative to parent.
 }
 
 impl Position {
     fn new() -> Position {
         Position {
-            parent_position: Vec2::ZERO,
-            local_position: Vec2::ZERO,
+            parent_position: Vec3::ZERO,
+            local_position: Vec3::ZERO,
         }
     }
 }
@@ -33,16 +36,16 @@ impl Position {
 pub trait PositionHierarchy {
     fn position(&self) -> &Position;
     fn position_mut(&mut self) -> &mut Position;
-    fn absolute_position(&self) -> Vec2 {
+    fn absolute_position(&self) -> Vec3 {
         let position = self.position();
         position.parent_position + position.local_position
     }
-    fn set_position(&mut self, local_position: &Vec2) {
+    fn set_position(&mut self, local_position: &Vec3) {
         self.position_mut().local_position = *local_position;
         self.set_child_positions();
     }
     fn set_child_positions(&mut self);
-    fn set_parent_position(&mut self, parent_position: &Vec2) {
+    fn set_parent_position(&mut self, parent_position: &Vec3) {
         self.position_mut().parent_position = *parent_position;
         self.set_child_positions();
     }
@@ -91,7 +94,7 @@ impl Menu {
 
     pub fn push_collection(&mut self, mut collection: Collection) {
         collection.set_parent_position(&self.absolute_position());
-        collection.set_position(&Vec2::new(0.0, 0.2 * self.collections.len() as f32));
+        collection.set_position(&Vec3::new(0.0, (1.0 + COLLECTION_SPACING) * self.collections.len() as f32, 0.0));
         self.collections.push(collection);
     }
 
@@ -107,11 +110,12 @@ impl Menu {
                 
                 if let Some(items) = &container.set.items {
                     for item in items {
-                        if let Some(image) = item.image.tile.get(ASPECT_RATIO) {
+                        // Get images with the aspect ratio we want.
+                        if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
                             if let Some(series) = &image.series {
                                 if let Some(details) = series.get("default") {
                                     let mut tile = Tile::new(details.clone());
-                                    tile.size = Vec2::new(0.1, 0.1);
+                                    tile.size = Vec2::new(1.78, 1.0);
                                     println!("new tile");
                                     collection.push_tile(tile);
                                 }
@@ -258,7 +262,7 @@ impl Collection {
 
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
-        tile.set_position(&Vec2::new(0.1 * self.tiles.len() as f32, 0.0));
+        tile.set_position(&Vec3::new((ASPECT_RATIO + TILE_SPACING) * self.tiles.len() as f32, 0.0, 0.0));
         self.tiles.push(tile);
         self.set_focused_tile(self.focused_tile);
     }
@@ -446,9 +450,11 @@ impl SetRenderDetails for Tile {
         match (&self.image_instance, &self.image_bytes) {
             (Some(image_instance), _) => {
                 let mut size = self.size;
+                let mut position = self.absolute_position();
                 if self.selected {
                     let selected_scaling = Vec2::new(1.2,1.2);
                     size = size * selected_scaling;
+                    position.z -= 1.0;
                 }
 
                 renderer.set_image_instance_position(*image_instance, Instance {
@@ -482,7 +488,7 @@ impl SetRenderDetails for Tile {
 mod test {
     use crate::menu::{Collection, Menu, Position, PositionHierarchy, Tile};
     use crate::home::{ImageDetails};
-    use glam::Vec2;
+    use glam::{Vec2, Vec3};
 
     #[test]
     fn hierarchy_test() {
@@ -511,11 +517,11 @@ mod test {
             focused_collection: 0,
         };
 
-        assert_eq!(menu.absolute_position(), Vec2::ZERO);
-        assert_eq!(menu.collections[0].absolute_position(), Vec2::ZERO);
-        assert_eq!(menu.collections[0].tiles[0].absolute_position(), Vec2::ZERO);
+        assert_eq!(menu.absolute_position(), Vec3::ZERO);
+        assert_eq!(menu.collections[0].absolute_position(), Vec3::ZERO);
+        assert_eq!(menu.collections[0].tiles[0].absolute_position(), Vec3::ZERO);
 
-        let vec_10_10 = Vec2::new(10.0, 10.0);
+        let vec_10_10 = Vec3::new(10.0, 10.0, 10.0);
         menu.set_position(&vec_10_10);
 
         assert_eq!(menu.absolute_position(), vec_10_10);
@@ -525,17 +531,17 @@ mod test {
         menu.collections[0].tiles[0].set_position(&vec_10_10);
         assert_eq!(
             menu.collections[0].tiles[0].absolute_position(),
-            Vec2::new(20.0, 20.0)
+            Vec3::new(20.0, 20.0, 20.0)
         );
 
         menu.collections[0].set_position(&vec_10_10);
         assert_eq!(
             menu.collections[0].absolute_position(),
-            Vec2::new(20.0, 20.0)
+            Vec3::new(20.0, 20.0, 20.0)
         );
         assert_eq!(
             menu.collections[0].tiles[0].absolute_position(),
-            Vec2::new(30.0, 30.0)
+            Vec3::new(30.0, 30.0, 30.0)
         );
 
         let mut new_collection = Collection::new();

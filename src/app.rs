@@ -7,7 +7,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use bytes::Bytes;
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 
 pub use crate::{
     renderer::Renderer,
@@ -34,67 +34,25 @@ impl App {
     pub async fn new() -> Result<App> {
         let event_loop = EventLoop::new();
         let window_builder = WindowBuilder::new()
-            .with_min_inner_size(LogicalSize::new(400.0, 300.0))
-            .with_inner_size(PhysicalSize::new(400.0, 300.0))
+            .with_min_inner_size(LogicalSize::new(800.0, 600.0))
+            .with_inner_size(PhysicalSize::new(800.0, 600.0))
             .with_title("DSS Project".to_string());
 
         let window = window_builder.build(&event_loop).unwrap();
         let mut menu = Menu::new();
-        menu.set_position(&Vec2::new(0.0, -0.1));
+        menu.set_position(&Vec3::new(1.5, 1.5, 0.0));
 
-        let mut renderer = Renderer::new(&window).await?;
-        let mut http_grabber = HttpGrabber::new();
+        let renderer = Renderer::new(&window).await?;
+        let http_grabber = HttpGrabber::new();
 
-            Ok(App {
-                event_loop,
-                renderer,
-                menu,
-                window,
-                http_grabber,
+        Ok(App {
+            event_loop,
+            renderer,
+            menu,
+            window,
+            http_grabber,
         })
     }
-
-    /*
-    // Grab home page of API.
-    pub fn poll_home(&mut self) -> Result<()> {
-        if let Poll::Ready(bytes) = self.http_grabber.poll(HOME_URL.to_owned())? {
-            self.home = Some(serde_json::from_slice(bytes.as_bytes())?);
-        }
-
-        Ok(())
-    }
-
-    // Just simple grab of all the images, ideally this would be somewhere in a kind of MVC situation with collections and tiles managing their own images/polling
-    // But don't have a lot of time so this'll do.
-    pub fn poll_images(&mut self) -> Result<bool> {
-        let still_polling = false;
-
-        if let Some(home) = self.home {
-            for container in home.data.standard_collection.containers {
-                if let Some(items) = container.set.items {
-                    for item in items {
-                        if let Some(image_refs) = item.image.tile.get(ASPECT_RATIO) {
-                            if let Some(series) = image_refs.series {
-                                if let Some(default_image) = series.get("default") {
-                                    let found = self.image_cache.contains_key(&default_image.url);
-                                    if !found {
-                                        still_polling = true;
-
-                                        if let Poll::Ready(bytes) = self.http_grabber.poll(default_image.url)? {
-                                            self.image_cache.insert(default_image.url, bytes);
-                                        };
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(still_polling)
-    }
-    */
 
     pub fn run(self) -> Result<()> {
         use crate::menu::{Pollable, SetRenderDetails};
@@ -107,11 +65,16 @@ impl App {
             mut http_grabber,
         } = self;
 
+        let mut done_polling = false;
+
         event_loop.run(move |event, event_loop_window_target, control_flow| {
             *control_flow = ControlFlow::Wait;
 
-            let _result = menu.poll(&mut http_grabber);
-            menu.set_render_details(&mut renderer);
+            if !done_polling {
+                done_polling = menu.poll(&mut http_grabber).expect("polling failed");
+            } else {
+                menu.set_render_details(&mut renderer);
+            }
 
             match event {
                 Event::WindowEvent {
@@ -140,7 +103,6 @@ impl App {
                                 },
                                 ..
                             } => {
-
                                 if window.fullscreen().is_some() {
                                     window.set_fullscreen(None);
                                 } else {
