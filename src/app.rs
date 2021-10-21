@@ -141,9 +141,8 @@ impl App {
                         Err(e) => eprintln!("{:?}", e),
                     }
                 }
-                Event::MainEventsCleared => {
+                Event::RedrawEventsCleared => {
                     // Maybe we should be conservative with this?
-                    // As in only drawing when user is more actively using the program.
                     window.request_redraw();
                 }
                 _ => {}

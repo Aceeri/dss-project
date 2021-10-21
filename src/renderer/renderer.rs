@@ -423,6 +423,7 @@ impl Renderer {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
+        /*
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.clear_color = wgpu::Color {
@@ -436,7 +437,8 @@ impl Renderer {
             }
             _ => false,
         }
-        //false
+        */
+        false
     }
 
     pub fn update(&mut self) {}

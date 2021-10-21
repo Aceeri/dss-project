@@ -65,7 +65,6 @@ impl Menu {
         if let Some(home) = &self.home {
             for container in &home.data.standard_collection.containers {
                 let mut collection = Collection::new();
-                println!("new collection");
                 
                 if let Some(items) = &container.set.items {
                     for item in items {
@@ -74,7 +73,6 @@ impl Menu {
                             let details = image.details();
                             let mut tile = Tile::new(details.clone());
                             tile.set_size(Vec2::new(1.78, 1.0));
-                            println!("new tile");
                             collection.push_tile(tile);
                         }
                     }
