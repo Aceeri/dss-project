@@ -414,11 +414,10 @@ impl Pollable for Tile {
             Some(_image_bytes) => Ok(true),
             None => {
                 if let Poll::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
-                    println!("got response");
+                    //println!("got response");
                     self.image_bytes = Some(bytes?.clone());
                     Ok(true)
                 } else {
-                    print!(".");
                     Ok(false)
                 }
             }
@@ -483,7 +482,6 @@ impl SetRenderDetails for Tile {
                 };
 
                 let image_handle = renderer.create_image(texture);
-                println!("tile: {:?}", self.absolute_position());
                 let instance_handle = renderer.create_instance(Instance {
                     position: self.absolute_position().into(),
                     size: self.size.into(),

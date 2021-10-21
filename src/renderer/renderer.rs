@@ -95,10 +95,10 @@ pub struct Camera {
 impl Camera {
     pub fn new(width: f32, height: f32) -> Self {
         let aspect_ratio = width / height;
-        let scaling = 10.0; // Just make things a bit easier to work with.
+        let scaling = 5.0; // Just make things a bit easier to work with.
         Self {
             // Back up 1 so we can actually see the images.
-            eye: (0.0, 0.0, 100.0).into(),
+            eye: (0.0, 0.0, 1.0).into(),
             target: (0.0, 0.0, 0.0).into(),
             up: Vec3::Y,
 
@@ -109,7 +109,7 @@ impl Camera {
             bottom: -1.0 * scaling,
 
             near: 0.0,
-            far: 1000.0,
+            far: 100.0,
 
             aspect_ratio,
         }
@@ -173,6 +173,7 @@ pub struct Renderer {
 
     pub(crate) instances: ReuseVec<Instance>,
     pub(crate) instance_buffer: wgpu::Buffer,
+    update_instance_buffer: bool,
 
     image_instances: ReuseVec<ImageInstance>,
 
@@ -357,7 +358,7 @@ impl Renderer {
 
         let clear_color = wgpu::Color {
             r: 0.0,
-            g: 0.0,
+            g: 0.005,
             b: 0.0,
             a: 1.0,
         };
@@ -380,6 +381,7 @@ impl Renderer {
 
             instances: ReuseVec::new(),
             instance_buffer,
+            update_instance_buffer: false,
 
             camera,
             camera_uniform,
@@ -419,6 +421,7 @@ impl Renderer {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
+        /*
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.clear_color = wgpu::Color {
@@ -432,6 +435,8 @@ impl Renderer {
             }
             _ => false,
         }
+        */
+        false
     }
 
     pub fn update(&mut self) {}
@@ -468,6 +473,14 @@ impl Renderer {
                     stencil_ops: None,
                 }),
             });
+
+            if self.update_instance_buffer {
+                self.queue.write_buffer(
+                    &self.instance_buffer,
+                    0,
+                    bytemuck::cast_slice(self.instances.current().as_slice()),
+                );
+            }
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
@@ -536,12 +549,7 @@ impl Renderer {
         match self.instances.get_mut(handle.0) {
             Some(instance) => {
                 *instance = new_instance;
-                
-                self.queue.write_buffer(
-                    &self.instance_buffer,
-                    0,
-                    bytemuck::cast_slice(self.instances.current().as_slice()),
-                );
+                self.update_instance_buffer = true;
             },
             None => {},
         }

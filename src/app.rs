@@ -40,7 +40,7 @@ impl App {
 
         let window = window_builder.build(&event_loop).unwrap();
         let mut menu = Menu::new();
-        menu.set_position(&Vec3::new(1.5, 1.5, 0.0));
+        menu.set_position(&Vec3::new(1.2, 1.0, 0.0));
 
         let renderer = Renderer::new(&window).await?;
         let http_grabber = HttpGrabber::new();
@@ -76,15 +76,18 @@ impl App {
                 done_polling = menu.poll(&mut http_grabber).expect("polling failed");
             }
 
-            counter += 1;
+            //counter += 1;
             menu.partial_set_render_details(&mut renderer);
+            //menu.set_render_details(&mut renderer);
 
             // Only update every once in a while, works out somewhat nicely if the machine has really bad specs because it will slow down the calls with that.
+            /*
             match counter {
-                counter if counter % 50 == 0 => menu.partial_set_render_details(&mut renderer),
+                counter if counter % 10 == 0 => menu.partial_set_render_details(&mut renderer),
                 //counter if counter % 100 == 0 => menu.set_render_details(&mut renderer),
                 _ => {},
             }
+            */
 
             match event {
                 Event::WindowEvent {
