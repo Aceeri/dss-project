@@ -74,8 +74,8 @@ impl App {
                 done_polling = menu.poll(&mut http_grabber).expect("polling failed");
             }
 
-            menu.partial_set_render_details(&mut renderer);
-            //menu.set_render_details(&mut renderer);
+            //menu.partial_set_render_details(&mut renderer);
+            menu.set_render_details(&mut renderer);
 
             match event {
                 Event::WindowEvent {

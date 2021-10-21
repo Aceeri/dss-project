@@ -9,71 +9,13 @@ use crate::{
     grabber::HttpGrabber,
     renderer::{Renderer, ImageInstanceHandle, Instance, Texture},
     home::{ImageDetails, Home},
+    menu::{prelude::*, Collection, Tile},
 };
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";
-pub const ASPECT_RATIO: f32 = 1.78;
-//pub const TILE_SPACING: f32 = 0.2;
-pub const TILE_SPACING: f32 = 0.0;
 pub const COLLECTION_SPACING: f32 = 0.5;
 
-#[derive(Debug, Clone)]
-pub struct Position {
-    parent_position: Vec3, // Cumulative position of parents.
-    local_position: Vec3,  // Local position relative to parent.
-}
-
-impl Position {
-    fn new() -> Position {
-        Position {
-            parent_position: Vec3::ZERO,
-            local_position: Vec3::ZERO,
-        }
-    }
-}
-
-// Maybe it would be better to just use Rc/Arc and have the children reference the parent's position?
-pub trait PositionHierarchy {
-    fn position(&self) -> &Position;
-    fn position_mut(&mut self) -> &mut Position;
-    fn absolute_position(&self) -> Vec3 {
-        let position = self.position();
-        position.parent_position + position.local_position
-    }
-    fn set_position(&mut self, local_position: &Vec3) {
-        self.position_mut().local_position = *local_position;
-        self.set_child_positions();
-    }
-    fn set_child_positions(&mut self);
-    fn set_parent_position(&mut self, parent_position: &Vec3) {
-        self.position_mut().parent_position = *parent_position;
-        self.set_child_positions();
-    }
-}
-
-pub trait EventGrab {
-    // Pass along events to the UI elements.
-    //
-    // Return true to consume the event.
-    fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
-    }
-}
-
-pub trait Pollable {
-    // Might be better to genericize it past just http grabbing for polling, but this is fine for now.
-    //
-    // Poll responses for http responses, return Ok(true) if done polling.
-    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool>;
-}
-
-pub trait SetRenderDetails {
-    fn set_render_details(&mut self, renderer: &mut crate::renderer::Renderer);
-
-    // Only set portions of the renderer every frame instead of all at once.
-    fn partial_set_render_details(&mut self, renderer: &mut crate::renderer::Renderer) { self.set_render_details(renderer); }
-}
 
 #[derive(Debug, Clone)]
 pub struct Menu {
@@ -131,7 +73,7 @@ impl Menu {
                         if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
                             let details = image.details();
                             let mut tile = Tile::new(details.clone());
-                            tile.size = Vec2::new(1.78, 1.0);
+                            tile.set_size(Vec2::new(1.78, 1.0));
                             println!("new tile");
                             collection.push_tile(tile);
                         }
@@ -147,25 +89,18 @@ impl Menu {
         }
     }
 
-    pub fn set_focused_tile(&mut self, collection_index: usize, tile_index: usize) {
+    pub fn focus_tile(&mut self, collection_index: usize, tile_index: usize) {
         if let Some(collection) = self.collections.get_mut(self.focused_collection) {
-            if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
-                tile.selected = false;
-                collection.dirty_list.push(self.focused_tile);
-            }
+            collection.focus_tile(self.focused_tile, false);
         }
 
         self.focused_collection = collection_index;
         self.focused_tile = tile_index;
 
         if let Some(collection) = self.collections.get_mut(self.focused_collection) {
-            if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
-                tile.selected = true;
-                collection.dirty_list.push(self.focused_tile);
-            }
+            collection.focus_tile(self.focused_tile, true);
         }
     }
-
 }
 
 impl PositionHierarchy for Menu {
@@ -227,7 +162,7 @@ impl EventGrab for Menu {
                     new_focused_tile = 0;
                 }
 
-                self.set_focused_tile(new_focused_collection, new_focused_tile);
+                self.focus_tile(new_focused_collection, new_focused_tile);
                 return true;
             }
             _ => {}
@@ -308,192 +243,6 @@ impl SetRenderDetails for Menu {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Collection {
-    position: Position,
-    tiles: Vec<Tile>,
-    selected: bool,
-
-    dirty_list: Vec<usize>,
-}
-
-impl Collection {
-    pub fn new() -> Self {
-        Self {
-            position: Position::new(),
-            tiles: Vec::new(),
-            selected: false,
-            
-            dirty_list: Vec::new(),
-        }
-    }
-
-    pub fn push_tile(&mut self, mut tile: Tile) {
-        tile.set_parent_position(&self.absolute_position());
-        tile.set_position(&Vec3::new((ASPECT_RATIO + TILE_SPACING) * self.tiles.len() as f32, 0.0, 0.0));
-        self.tiles.push(tile);
-    }
-}
-
-impl PositionHierarchy for Collection {
-    fn position(&self) -> &Position {
-        &self.position
-    }
-    fn position_mut(&mut self) -> &mut Position {
-        &mut self.position
-    }
-    fn set_child_positions(&mut self) {
-        let absolute = self.absolute_position();
-        for tile in &mut self.tiles {
-            tile.set_parent_position(&absolute);
-        }
-    }
-}
-
-impl EventGrab for Collection {
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        false
-    }
-}
-
-impl Pollable for Collection {
-    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
-        let mut done = true;
-        for tile in &mut self.tiles {
-            done = done && tile.poll(grabber)?;
-        }
-
-        Ok(done)
-    }
-}
-
-impl SetRenderDetails for Collection {
-    fn set_render_details(&mut self, renderer: &mut Renderer) {
-        // TODO: add text rendering to this.
-
-        for tile in &mut self.tiles {
-            tile.set_render_details(renderer);
-        }
-    }
-
-    fn partial_set_render_details(&mut self, renderer: &mut Renderer) {
-        if let Some(index) = self.dirty_list.pop() {
-            self.tiles.get_mut(index).map(|tile| tile.set_render_details(renderer));
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct Tile {
-    position: Position,
-    size: Vec2,
-    selected: bool,
-
-    image_instance: Option<ImageInstanceHandle>,
-    image_bytes: Option<bytes::Bytes>,
-    details: ImageDetails,
-}
-
-impl Tile {
-    pub fn new(details: ImageDetails) -> Self {
-        Self {
-            position: Position::new(),
-            size: Vec2::new(0.1, 0.1),
-            selected: false,
-
-            image_instance: None,
-            image_bytes: None,
-            details: details,
-        }
-    }
-    pub fn focused_instance(&self) -> Instance {
-        let mut size = self.size;
-        let mut position = self.absolute_position();
-        if self.selected {
-            let selected_scaling = Vec2::new(1.2,1.2);
-            size = size * selected_scaling;
-            position.z += 1.0;
-        }
-
-        Instance {
-            size: size.into(),
-            position: position.into(),
-        }
-    }
-}
-
-impl Pollable for Tile {
-    fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
-        match &self.image_bytes {
-            Some(_image_bytes) => Ok(true),
-            None => {
-                if let Poll::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
-                    //println!("got response");
-                    self.image_bytes = Some(bytes?.clone());
-                    Ok(true)
-                } else {
-                    Ok(false)
-                }
-            }
-        }
-    }
-}
-
-impl PositionHierarchy for Tile {
-    fn position(&self) -> &Position {
-        &self.position
-    }
-    fn position_mut(&mut self) -> &mut Position {
-        &mut self.position
-    }
-    fn set_child_positions(&mut self) {}
-}
-
-impl EventGrab for Tile {
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                input:
-                    KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::LShift),
-                        ..
-                    },
-                ..
-            } => {
-                println!("details: {:?}", self.details.url);
-                true
-            }
-            _ => false,
-        }
-    }
-}
-
-impl SetRenderDetails for Tile {
-    fn set_render_details(&mut self, renderer: &mut Renderer) {
-        match (&self.image_instance, &self.image_bytes) {
-            (Some(image_instance), _) => {
-                renderer.set_image_instance_position(*image_instance, self.focused_instance());
-            }
-            (None, Some(texture_bytes)) => {
-                let texture = match Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg") {
-                    Ok(texture) => texture,
-                    Err(_) => {
-                        let fallback_bytes = include_bytes!("renderer/test.png");
-                        Texture::from_bytes(&renderer.device, &renderer.queue, fallback_bytes, "fallback.png").expect("created texture")
-                    },
-                };
-
-                let image_handle = renderer.create_image(texture);
-                let instance_handle = renderer.create_instance(self.focused_instance());
-
-                self.image_instance = Some(renderer.create_image_instance(image_handle, instance_handle));
-            }
-            _ => {}
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::menu::{Collection, Menu, Position, PositionHierarchy, Tile};
@@ -516,13 +265,15 @@ mod test {
                 tiles: vec![Tile {
                     position: Position::new(),
                     size: Vec2::ZERO,
-                    selected: false,
+                    focused: false,
                     image_bytes: None,
                     image_instance: None,
                     details: dummy_details.clone(),
                 }],
-                selected: false,
+                focused: false,
+                dirty_list: Vec::new(),
             }],
+
             focused_collection: 0,
             focused_tile: 0,
         };

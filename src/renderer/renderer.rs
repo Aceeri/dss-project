@@ -177,9 +177,7 @@ pub struct Renderer {
 
     pub(crate) texture_bind_group_layout: wgpu::BindGroupLayout,
 
-    sample_count: u32,
     depth_texture: Texture,
-    msaa_texture: Texture,
 
     camera: Camera,
     camera_uniform: CameraUniform,
@@ -197,7 +195,7 @@ impl Renderer {
         let surface = unsafe { instance.create_surface(window) };
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(), // Should this be low power maybe?
+                power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
                 force_fallback_adapter: false,
             })
@@ -279,9 +277,7 @@ impl Renderer {
                 push_constant_ranges: &[],
             });
 
-        let sample_count = 4;
-        let depth_texture = Texture::create_depth_texture(&device, &config, sample_count, "depth_texture");
-        let msaa_texture = Texture::create_msaa_texture(&device, &config, sample_count, "msaa_texture");
+        let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
 
         let aspect_ratio = config.width as f32 / config.height as f32;
 
@@ -291,42 +287,50 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
 
+        let vertex_state = wgpu::VertexState {
+            module: &shader,
+            entry_point: "main",
+            buffers: &[Vertex::desc(), Instance::desc()],
+        };
+
+        let fragment_state = wgpu::FragmentState {
+            module: &shader,
+            entry_point: "main",
+            targets: &[wgpu::ColorTargetState {
+                format: config.format,
+                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                //blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            }],
+        };
+
+        let primitive_state = wgpu::PrimitiveState {
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw,
+            cull_mode: Some(wgpu::Face::Back),
+            clamp_depth: false,
+            polygon_mode: wgpu::PolygonMode::Fill,
+            conservative: false,
+        };
+
+        let depth_stencil_state = wgpu::DepthStencilState {
+            format: crate::renderer::Texture::DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        };
+
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &shader,
-                entry_point: "main",
-                buffers: &[Vertex::desc(), Instance::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: "main",
-                targets: &[wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    //blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                }],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                clamp_depth: false,
-                polygon_mode: wgpu::PolygonMode::Fill,
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: crate::renderer::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
+            vertex: vertex_state,
+            fragment: Some(fragment_state),
+            primitive: primitive_state,
+            depth_stencil: Some(depth_stencil_state),
             multisample: wgpu::MultisampleState {
-                count: 4,
+                count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -390,9 +394,7 @@ impl Renderer {
             camera_buffer,
             camera_bind_group,
 
-            sample_count,
             depth_texture,
-            msaa_texture,
 
             clear_color,
         })
@@ -409,8 +411,7 @@ impl Renderer {
             self.camera_uniform.set_view_matrix(&self.camera);
 
             // Depth texture is the same size as our screen so we need to resize it.
-            self.depth_texture = Texture::create_depth_texture(&self.device, &self.config, self.sample_count, "depth_texture");
-            self.msaa_texture = Texture::create_msaa_texture(&self.device, &self.config, self.sample_count, "msaa_texture");
+            self.depth_texture = Texture::create_depth_texture(&self.device, &self.config,  "depth_texture");
 
             self.queue.write_buffer(
                 &self.camera_buffer,
@@ -453,16 +454,20 @@ impl Renderer {
             });
 
         {
+            let ops = wgpu::Operations {
+                load: wgpu::LoadOp::Clear(self.clear_color),
+                store: true,
+            };
+
+            let color_attachment = wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: ops,
+            };
+
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
-                color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &self.msaa_texture.view,
-                    resolve_target: Some(&view),
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.clear_color),
-                        store: true,
-                    },
-                }],
+                color_attachments: &[color_attachment],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
