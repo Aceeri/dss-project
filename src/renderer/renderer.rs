@@ -150,16 +150,13 @@ impl CameraUniform {
         self.aspect_ratio = camera.aspect_ratio;
     }
 }
-
 pub struct ImageInstance {
     image: ImageHandle,
     instance: InstanceHandle,
 }
-
 pub trait Drawable {
     fn draw(&self, renderer: &Renderer) -> Result<()>;
 }
-
 pub struct Renderer {
     pub(crate) surface: wgpu::Surface,
     pub(crate) device: wgpu::Device,
@@ -180,7 +177,9 @@ pub struct Renderer {
 
     pub(crate) texture_bind_group_layout: wgpu::BindGroupLayout,
 
-    depth_texture: crate::renderer::Texture,
+    sample_count: u32,
+    depth_texture: Texture,
+    msaa_texture: Texture,
 
     camera: Camera,
     camera_uniform: CameraUniform,
@@ -280,8 +279,9 @@ impl Renderer {
                 push_constant_ranges: &[],
             });
 
-        let depth_texture =
-            crate::renderer::Texture::create_depth_texture(&device, &config, "depth_texture");
+        let sample_count = 4;
+        let depth_texture = Texture::create_depth_texture(&device, &config, sample_count, "depth_texture");
+        let msaa_texture = Texture::create_msaa_texture(&device, &config, sample_count, "msaa_texture");
 
         let aspect_ratio = config.width as f32 / config.height as f32;
 
@@ -304,8 +304,8 @@ impl Renderer {
                 entry_point: "main",
                 targets: &[wgpu::ColorTargetState {
                     format: config.format,
-                    //blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    blend: Some(wgpu::BlendState::REPLACE),
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    //blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL,
                 }],
             }),
@@ -326,7 +326,7 @@ impl Renderer {
                 bias: wgpu::DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState {
-                count: 1,
+                count: 4,
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
@@ -390,7 +390,9 @@ impl Renderer {
             camera_buffer,
             camera_bind_group,
 
+            sample_count,
             depth_texture,
+            msaa_texture,
 
             clear_color,
         })
@@ -407,11 +409,8 @@ impl Renderer {
             self.camera_uniform.set_view_matrix(&self.camera);
 
             // Depth texture is the same size as our screen so we need to resize it.
-            self.depth_texture = crate::renderer::Texture::create_depth_texture(
-                &self.device,
-                &self.config,
-                "depth_texture",
-            );
+            self.depth_texture = Texture::create_depth_texture(&self.device, &self.config, self.sample_count, "depth_texture");
+            self.msaa_texture = Texture::create_msaa_texture(&self.device, &self.config, self.sample_count, "msaa_texture");
 
             self.queue.write_buffer(
                 &self.camera_buffer,
@@ -423,7 +422,6 @@ impl Renderer {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        /*
         match event {
             WindowEvent::CursorMoved { position, .. } => {
                 self.clear_color = wgpu::Color {
@@ -437,8 +435,7 @@ impl Renderer {
             }
             _ => false,
         }
-        */
-        false
+        //false
     }
 
     pub fn update(&mut self) {}
@@ -459,8 +456,8 @@ impl Renderer {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
+                    view: &self.msaa_texture.view,
+                    resolve_target: Some(&view),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(self.clear_color),
                         store: true,
@@ -497,6 +494,9 @@ impl Renderer {
 
             // Ideally we would batch this into a single draw call by using texture atlases/arrays but
             // for the sake of simplicity going to just do one draw call per tile image.
+            //
+            // Texture atlases have their own problems, and texture arrays aren't supported in older GPUs so probably
+            // can't be used in this case.
             //
             // Could also have some fun with multithreading these draw calls although I don't know how much performance
             // that would really save in this case.
