@@ -174,6 +174,7 @@ pub struct Renderer {
     pub(crate) instances: ReuseVec<Instance>,
     pub(crate) instance_buffer: wgpu::Buffer,
     update_instance_buffer: bool,
+    expand_instance_buffer: bool,
 
     image_instances: ReuseVec<ImageInstance>,
 
@@ -382,6 +383,7 @@ impl Renderer {
             instances: ReuseVec::new(),
             instance_buffer,
             update_instance_buffer: false,
+            expand_instance_buffer: false,
 
             camera,
             camera_uniform,
@@ -474,7 +476,15 @@ impl Renderer {
                 }),
             });
 
-            if self.update_instance_buffer {
+            if self.expand_instance_buffer {
+                // Probably should do some sort of amortized doubling of this buffer here similar to Vecs.
+                self.instance_buffer = self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Instance Buffer"),
+                        contents: bytemuck::cast_slice(self.instances.current().as_slice()),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+            } else if self.update_instance_buffer {
                 self.queue.write_buffer(
                     &self.instance_buffer,
                     0,
@@ -486,7 +496,7 @@ impl Renderer {
             render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
 
             // Ideally we would batch this into a single draw call by using texture atlases/arrays but
-            // for the sake of simplicity going to just do a draw call per tile image.
+            // for the sake of simplicity going to just do one draw call per tile image.
             //
             // Could also have some fun with multithreading these draw calls although I don't know how much performance
             // that would really save in this case.
@@ -506,6 +516,8 @@ impl Renderer {
                     render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1);
                 }
             }
+
+            // TODO: Render text
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -525,13 +537,7 @@ impl Renderer {
     pub fn create_instance(&mut self, instance: Instance) -> InstanceHandle {
         let index = self.instances.push(instance);
 
-        // Probably should do some sort of amortized doubling of this buffer here similar to Vecs.
-        self.instance_buffer = self.device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(self.instances.current().as_slice()),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            });
+        self.expand_instance_buffer = true;
 
         InstanceHandle(index)
     }
