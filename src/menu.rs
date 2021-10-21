@@ -14,7 +14,8 @@ use crate::{
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 pub const ASPECT_RATIO: f32 = 1.78;
-pub const TILE_SPACING: f32 = 0.2;
+//pub const TILE_SPACING: f32 = 0.2;
+pub const TILE_SPACING: f32 = 0.0;
 pub const COLLECTION_SPACING: f32 = 0.5;
 
 #[derive(Debug, Clone)]
@@ -201,7 +202,6 @@ impl EventGrab for Menu {
                     },
                 ..
             } => {
-                println!("menu {:?}", direction);
                 let mut new_focused_tile = self.focused_tile;
                 let mut new_focused_collection = self.focused_collection;
 
@@ -406,6 +406,20 @@ impl Tile {
             details: details,
         }
     }
+    pub fn focused_instance(&self) -> Instance {
+        let mut size = self.size;
+        let mut position = self.absolute_position();
+        if self.selected {
+            let selected_scaling = Vec2::new(1.2,1.2);
+            size = size * selected_scaling;
+            position.z += 1.0;
+        }
+
+        Instance {
+            size: size.into(),
+            position: position.into(),
+        }
+    }
 }
 
 impl Pollable for Tile {
@@ -459,18 +473,7 @@ impl SetRenderDetails for Tile {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
         match (&self.image_instance, &self.image_bytes) {
             (Some(image_instance), _) => {
-                let mut size = self.size;
-                let mut position = self.absolute_position();
-                if self.selected {
-                    let selected_scaling = Vec2::new(1.2,1.2);
-                    size = size * selected_scaling;
-                    position.z -= 1.0;
-                }
-
-                renderer.set_image_instance_position(*image_instance, Instance {
-                    position: self.absolute_position().into(),
-                    size: size.into(),
-                });
+                renderer.set_image_instance_position(*image_instance, self.focused_instance());
             }
             (None, Some(texture_bytes)) => {
                 let texture = match Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg") {
@@ -482,10 +485,7 @@ impl SetRenderDetails for Tile {
                 };
 
                 let image_handle = renderer.create_image(texture);
-                let instance_handle = renderer.create_instance(Instance {
-                    position: self.absolute_position().into(),
-                    size: self.size.into(),
-                });
+                let instance_handle = renderer.create_instance(self.focused_instance());
 
                 self.image_instance = Some(renderer.create_image_instance(image_handle, instance_handle));
             }
