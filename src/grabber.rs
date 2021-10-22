@@ -2,13 +2,12 @@ use anyhow::Result;
 use bytes::Bytes;
 use flume::{Receiver, Sender};
 use futures_util::StreamExt;
-use reqwest::header::OccupiedEntry;
 use reqwest::{Client, RequestBuilder};
 use tokio::sync::Mutex;
-use tokio::task::{self, JoinHandle};
+use tokio::task;
 
 use std::collections::hash_map::Entry;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::task::Poll;
 
@@ -16,6 +15,8 @@ pub type HttpResponse = Poll<Result<Bytes>>;
 type ResponseCache = Arc<Mutex<HashMap<String, HttpResponse>>>;
 
 // Mostly just following https://tokio.rs/tokio/tutorial/shared-state for context.
+//
+// crossbeam-channel might be worth looking at as well, but flume was also a bit nicer with async/await.
 
 pub struct HttpGrabber {
     pub request_transmit: Sender<String>,
@@ -101,15 +102,8 @@ impl HttpGrabber {
 
     // Alright, sending individual tasks is kind of complicated, so let's just send 1 request and check for the response before moving on.
     pub fn poll_request(&mut self, url: String) -> Result<HttpResponse> {
-        //println!("polling request for {:?}", url);
         self.request_transmit.send(url.clone())?;
         let response = self.response_receive.recv()?;
         Ok(response)
     }
-}
-
-#[cfg(test)]
-mod test {
-    #[test]
-    fn sanity() {}
 }

@@ -15,8 +15,6 @@ pub use crate::{
     renderer::Renderer,
 };
 
-use std::{collections::HashMap, task::Poll};
-
 pub struct App {
     renderer: Renderer,
     menu: Menu,

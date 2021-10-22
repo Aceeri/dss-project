@@ -1,13 +1,14 @@
+
 use anyhow::Result;
 use wgpu::util::DeviceExt;
 use winit::{
-    event::{KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::WindowEvent,
     window::Window,
 };
 
 use glam::{Mat4, Vec3};
 
-use std::{collections::HashMap, mem};
+use std::mem;
 
 use crate::renderer::{Image, ImageHandle, ImageMesh, Texture};
 use crate::util::ReuseVec;
@@ -157,6 +158,9 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
 
+    //sprite_renderer: SpritePass,
+    //text_renderer: TextPass,
+
     pub(crate) images: ReuseVec<Image>,
     pub(crate) image_mesh: ImageMesh,
 
@@ -177,6 +181,10 @@ pub struct Renderer {
     camera_bind_group: wgpu::BindGroup,
 
     clear_color: wgpu::Color,
+}
+
+pub struct SpritePass {
+
 }
 
 impl Renderer {

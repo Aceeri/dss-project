@@ -12,14 +12,9 @@ extern crate winit;
 
 extern crate image;
 
-use mimalloc::MiMalloc;
-
 pub mod app;
 pub mod grabber;
 pub mod home;
 pub mod menu;
 pub mod renderer;
 pub mod util;
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
