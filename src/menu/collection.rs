@@ -66,7 +66,7 @@ impl PositionHierarchy for Collection {
 }
 
 impl EventGrab for Collection {
-    fn input(&mut self, event: &WindowEvent) -> bool {
+    fn input(&mut self, _event: &WindowEvent) -> bool {
         false
     }
 }

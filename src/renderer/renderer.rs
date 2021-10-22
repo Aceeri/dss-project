@@ -1,8 +1,7 @@
 use anyhow::Result;
-use image::DynamicImage;
 use wgpu::util::DeviceExt;
 use winit::{
-    event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{KeyboardInput, VirtualKeyCode, WindowEvent},
     window::Window,
 };
 
@@ -88,8 +87,6 @@ pub struct Camera {
     pub top: f32,
     pub near: f32,
     pub far: f32,
-
-    pub aspect_ratio: f32,
 }
 
 impl Camera {
@@ -110,8 +107,6 @@ impl Camera {
 
             near: 0.0,
             far: 100.0,
-
-            aspect_ratio,
         }
     }
 
@@ -134,29 +129,26 @@ impl Camera {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     view_matrix: [[f32; 4]; 4],
-    aspect_ratio: f32,
 }
 
 impl CameraUniform {
     pub fn new() -> Self {
         Self {
             view_matrix: Mat4::IDENTITY.to_cols_array_2d(),
-            aspect_ratio: 1.0,
         }
     }
 
     pub fn set_view_matrix(&mut self, camera: &Camera) {
         self.view_matrix = camera.build_view_matrix().to_cols_array_2d();
-        self.aspect_ratio = camera.aspect_ratio;
     }
 }
+
+#[derive(Debug, Clone)]
 pub struct ImageInstance {
     image: ImageHandle,
     instance: InstanceHandle,
 }
-pub trait Drawable {
-    fn draw(&self, renderer: &Renderer) -> Result<()>;
-}
+
 pub struct Renderer {
     pub(crate) surface: wgpu::Surface,
     pub(crate) device: wgpu::Device,
@@ -278,8 +270,6 @@ impl Renderer {
             });
 
         let depth_texture = Texture::create_depth_texture(&device, &config, "depth_texture");
-
-        let aspect_ratio = config.width as f32 / config.height as f32;
 
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -423,7 +413,7 @@ impl Renderer {
         }
     }
 
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
+    pub fn input(&mut self, _event: &WindowEvent) -> bool {
         /*
         match event {
             WindowEvent::CursorMoved { position, .. } => {
@@ -583,9 +573,9 @@ impl Renderer {
         handle: ImageInstanceHandle,
         new_instance: Instance,
     ) {
-        match self.image_instances.get(handle.0) {
-            Some(image_instance) => self.set_instance(image_instance.instance, new_instance),
-            None => {}
+        let image_instance = self.image_instances.get(handle.0).cloned();
+        if let Some(image_instance) = image_instance {
+            self.set_instance(image_instance.instance, new_instance);
         }
     }
 }

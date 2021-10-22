@@ -1,6 +1,5 @@
 pub use anyhow::Result;
-use bytes::Bytes;
-use glam::{Vec2, Vec3};
+use glam::Vec3;
 use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},

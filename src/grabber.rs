@@ -49,11 +49,12 @@ pub async fn process(
 
     match locked_responses.entry(url.clone()) {
         Entry::Occupied(entry) => {
-            let response = match entry.get() {
-                Poll::Ready(Ok(bytes)) => Poll::Ready(Ok(bytes.clone())), // Bytes is reference counted so cloning isn't too heavy.
-                Poll::Ready(Err(_)) => Poll::Pending,
-                Poll::Pending => Poll::Pending,
-            };
+            // Just grab the result entirely, allows for retrying on error and allows us to actually send the error back.
+            // Otherwise we'd have to deal with it immediately here because anyhow::Error does not implement `Clone`.
+            let mut response = Poll::Pending;
+            if let Poll::Ready(_) = entry.get() {
+                response = entry.remove();
+            }
 
             response_transmit
                 .send_async(response)
@@ -63,7 +64,7 @@ pub async fn process(
         Entry::Vacant(entry) => {
             entry.insert(Poll::Pending);
 
-            // need to kill the mutex early, otherwise this is going to be locked until this .
+            // need to kill the mutex early, otherwise this is going to be locked forever.
             drop(locked_responses);
             response_transmit
                 .send_async(Poll::Pending)

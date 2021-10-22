@@ -6,9 +6,9 @@ use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
     grabber::HttpGrabber,
-    home::{Home, ImageDetails},
+    home::Home,
     menu::{prelude::*, Collection, Tile},
-    renderer::{ImageInstanceHandle, Instance, Renderer, Texture},
+    renderer::Renderer,
 };
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
@@ -60,13 +60,12 @@ impl Menu {
     }
 
     pub fn construct_home(&mut self) {
-        println!("constructing home");
-
         let mut new_collections = Vec::new();
 
         if let Some(home) = &self.home {
             for container in &home.data.standard_collection.containers {
-                let mut collection = Collection::new("test".to_owned());
+                let text_details = container.set.text.title.full.details();
+                let mut collection = Collection::new(text_details.content.clone());
 
                 if let Some(items) = &container.set.items {
                     for item in items {
@@ -191,7 +190,7 @@ impl EventGrab for Menu {
 impl Pollable for Menu {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.home {
-            Some(home) => {
+            Some(_) => {
                 let mut done = true;
                 for collection in &mut self.collections {
                     done = done && collection.poll(grabber)?;
@@ -203,8 +202,8 @@ impl Pollable for Menu {
                 match grabber.poll_request(HOME_URL.to_owned())? {
                     Poll::Pending => Ok(false),
                     Poll::Ready(home) => {
+                        println!("got homepage, rendering page now");
                         // Construct initial homepage.
-                        println!("constructing home");
                         let home = home?;
                         self.home = Some(serde_json::from_slice(home.as_bytes())?);
                         self.construct_home();
@@ -250,8 +249,8 @@ impl SetRenderDetails for Menu {
 #[cfg(test)]
 mod test {
     use crate::home::ImageDetails;
-    use crate::menu::{Collection, Menu, Position, PositionHierarchy, Tile};
-    use glam::{Vec2, Vec3};
+    use crate::menu::{Collection, Menu, PositionHierarchy, Tile};
+    use glam::Vec3;
 
     #[test]
     fn hierarchy_test() {
@@ -297,7 +296,7 @@ mod test {
         );
 
         let mut new_collection = Collection::new("dummy".to_owned());
-        let mut new_tile = Tile::new(dummy_details);
+        let new_tile = Tile::new(dummy_details);
         new_collection.push_tile(new_tile);
         menu.push_collection(new_collection);
         println!("{:?}", menu.absolute_position());

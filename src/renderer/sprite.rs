@@ -65,6 +65,7 @@ pub struct Image {
     pub bind_group: wgpu::BindGroup,
 }
 
+#[derive(Debug, Clone)]
 pub struct ImageHandle(pub usize);
 
 impl Renderer {

@@ -1,12 +1,12 @@
 use anyhow::Result;
-use glam::{Vec2, Vec3};
+use glam::Vec2;
 use image::EncodableLayout;
 use std::task::Poll;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
     grabber::HttpGrabber,
-    home::{Home, ImageDetails},
+    home::ImageDetails,
     menu::prelude::*,
     renderer::{ImageInstanceHandle, Instance, Renderer, Texture},
 };
