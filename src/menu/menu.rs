@@ -1,21 +1,19 @@
-
-use glam::{Vec2, Vec3};
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
-use std::task::{Poll};
 use anyhow::Result;
+use glam::{Vec2, Vec3};
 use image::EncodableLayout;
+use std::task::Poll;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
     grabber::HttpGrabber,
-    renderer::{Renderer, ImageInstanceHandle, Instance, Texture},
-    home::{ImageDetails, Home},
+    home::{Home, ImageDetails},
     menu::{prelude::*, Collection, Tile},
+    renderer::{ImageInstanceHandle, Instance, Renderer, Texture},
 };
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 pub const COLLECTION_SPACING: f32 = 0.5;
-
 
 #[derive(Debug, Clone)]
 pub struct Menu {
@@ -53,7 +51,11 @@ impl Menu {
 
     pub fn push_collection(&mut self, mut collection: Collection) {
         collection.set_parent_position(&self.absolute_position());
-        collection.set_position(&Vec3::new(0.0, (1.0 + COLLECTION_SPACING) * self.collections.len() as f32, 0.0));
+        collection.set_position(&Vec3::new(
+            0.0,
+            (1.0 + COLLECTION_SPACING) * self.collections.len() as f32,
+            0.0,
+        ));
         self.collections.push(collection);
     }
 
@@ -65,7 +67,7 @@ impl Menu {
         if let Some(home) = &self.home {
             for container in &home.data.standard_collection.containers {
                 let mut collection = Collection::new("test".to_owned());
-                
+
                 if let Some(items) = &container.set.items {
                     for item in items {
                         // Get images with the aspect ratio we want.
@@ -126,10 +128,10 @@ impl EventGrab for Menu {
                         state: ElementState::Pressed,
                         virtual_keycode:
                             Some(
-                                direction @ VirtualKeyCode::Down |
-                                direction @ VirtualKeyCode::Up |
-                                direction @ VirtualKeyCode::Left |
-                                direction @ VirtualKeyCode::Right
+                                direction @ VirtualKeyCode::Down
+                                | direction @ VirtualKeyCode::Up
+                                | direction @ VirtualKeyCode::Left
+                                | direction @ VirtualKeyCode::Right,
                             ),
                         ..
                     },
@@ -139,11 +141,15 @@ impl EventGrab for Menu {
                 let mut new_focused_collection = self.focused_collection;
 
                 match direction {
-                    VirtualKeyCode::Up => new_focused_collection = new_focused_collection.saturating_sub(1),
-                    VirtualKeyCode::Down => new_focused_collection = new_focused_collection.saturating_add(1),
+                    VirtualKeyCode::Up => {
+                        new_focused_collection = new_focused_collection.saturating_sub(1)
+                    }
+                    VirtualKeyCode::Down => {
+                        new_focused_collection = new_focused_collection.saturating_add(1)
+                    }
                     VirtualKeyCode::Left => new_focused_tile = new_focused_tile.saturating_sub(1),
                     VirtualKeyCode::Right => new_focused_tile = new_focused_tile.saturating_add(1),
-                    _ => { },
+                    _ => {}
                 };
 
                 if self.collections.len() > 0 {
@@ -192,7 +198,7 @@ impl Pollable for Menu {
                 }
 
                 Ok(done)
-            },
+            }
             None => {
                 match grabber.poll_request(HOME_URL.to_owned())? {
                     Poll::Pending => Ok(false),
@@ -243,8 +249,8 @@ impl SetRenderDetails for Menu {
 
 #[cfg(test)]
 mod test {
+    use crate::home::ImageDetails;
     use crate::menu::{Collection, Menu, Position, PositionHierarchy, Tile};
-    use crate::home::{ImageDetails};
     use glam::{Vec2, Vec3};
 
     #[test]

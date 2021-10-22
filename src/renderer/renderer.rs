@@ -411,7 +411,8 @@ impl Renderer {
             self.camera_uniform.set_view_matrix(&self.camera);
 
             // Depth texture is the same size as our screen so we need to resize it.
-            self.depth_texture = Texture::create_depth_texture(&self.device, &self.config,  "depth_texture");
+            self.depth_texture =
+                Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
 
             self.queue.write_buffer(
                 &self.camera_buffer,
@@ -482,12 +483,13 @@ impl Renderer {
 
             if self.expand_instance_buffer {
                 // Probably should do some sort of amortized doubling of this buffer here similar to Vecs.
-                self.instance_buffer = self.device
-                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                        label: Some("Instance Buffer"),
-                        contents: bytemuck::cast_slice(self.instances.current().as_slice()),
-                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                    });
+                self.instance_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Instance Buffer"),
+                            contents: bytemuck::cast_slice(self.instances.current().as_slice()),
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        });
             } else if self.update_instance_buffer {
                 self.queue.write_buffer(
                     &self.instance_buffer,
@@ -520,7 +522,11 @@ impl Renderer {
                 let image = self.images.get(image_instance.image.0);
                 if let Some(image) = image {
                     render_pass.set_bind_group(0, &image.bind_group, &[]);
-                    render_pass.draw_indexed(0..crate::renderer::sprite::NUM_INDICES, 0, image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1);
+                    render_pass.draw_indexed(
+                        0..crate::renderer::sprite::NUM_INDICES,
+                        0,
+                        image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1,
+                    );
                 }
             }
 
@@ -549,7 +555,11 @@ impl Renderer {
         InstanceHandle(index)
     }
 
-    pub fn create_image_instance(&mut self, image_handle: ImageHandle, instance_handle: InstanceHandle) -> ImageInstanceHandle {
+    pub fn create_image_instance(
+        &mut self,
+        image_handle: ImageHandle,
+        instance_handle: InstanceHandle,
+    ) -> ImageInstanceHandle {
         let index = self.image_instances.push(ImageInstance {
             image: image_handle,
             instance: instance_handle,
@@ -563,15 +573,19 @@ impl Renderer {
             Some(instance) => {
                 *instance = new_instance;
                 self.update_instance_buffer = true;
-            },
-            None => {},
+            }
+            None => {}
         }
     }
 
-    pub fn set_image_instance_position(&mut self, handle: ImageInstanceHandle, new_instance: Instance) {
+    pub fn set_image_instance_position(
+        &mut self,
+        handle: ImageInstanceHandle,
+        new_instance: Instance,
+    ) {
         match self.image_instances.get(handle.0) {
             Some(image_instance) => self.set_instance(image_instance.instance, new_instance),
-            None => {},
+            None => {}
         }
     }
 }

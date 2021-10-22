@@ -1,16 +1,14 @@
-
-
-use glam::{Vec2, Vec3};
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
-use std::task::{Poll};
 use anyhow::Result;
+use glam::{Vec2, Vec3};
 use image::EncodableLayout;
+use std::task::Poll;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
     grabber::HttpGrabber,
-    renderer::{Renderer, ImageInstanceHandle, Instance, Texture},
-    home::{ImageDetails, Home},
+    home::{Home, ImageDetails},
     menu::prelude::*,
+    renderer::{ImageInstanceHandle, Instance, Renderer, Texture},
 };
 
 #[derive(Debug, Clone)]
@@ -40,7 +38,7 @@ impl Tile {
     pub fn position(&self) -> &Position {
         &self.position
     }
-    
+
     pub fn size(&self) -> &Vec2 {
         &self.size
     }
@@ -61,7 +59,7 @@ impl Tile {
         let mut size = self.size;
         let mut position = self.absolute_position();
         if self.focused {
-            let focused_scaling = Vec2::new(1.2,1.2);
+            let focused_scaling = Vec2::new(1.2, 1.2);
             size = size * focused_scaling;
             position.z += 1.0;
         }
@@ -126,18 +124,30 @@ impl SetRenderDetails for Tile {
                 renderer.set_image_instance_position(*image_instance, self.focused_instance());
             }
             (None, Some(texture_bytes)) => {
-                let texture = match Texture::from_bytes(&renderer.device, &renderer.queue, texture_bytes.as_bytes(), "test.jpeg") {
+                let texture = match Texture::from_bytes(
+                    &renderer.device,
+                    &renderer.queue,
+                    texture_bytes.as_bytes(),
+                    "test.jpeg",
+                ) {
                     Ok(texture) => texture,
                     Err(_) => {
                         let fallback_bytes = include_bytes!("../renderer/test.png");
-                        Texture::from_bytes(&renderer.device, &renderer.queue, fallback_bytes, "fallback.png").expect("created texture")
-                    },
+                        Texture::from_bytes(
+                            &renderer.device,
+                            &renderer.queue,
+                            fallback_bytes,
+                            "fallback.png",
+                        )
+                        .expect("created texture")
+                    }
                 };
 
                 let image_handle = renderer.create_image(texture);
                 let instance_handle = renderer.create_instance(self.focused_instance());
 
-                self.image_instance = Some(renderer.create_image_instance(image_handle, instance_handle));
+                self.image_instance =
+                    Some(renderer.create_image_instance(image_handle, instance_handle));
             }
             _ => {}
         }

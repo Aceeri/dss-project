@@ -1,4 +1,3 @@
-
 #![recursion_limit = "256"]
 
 extern crate serde;
@@ -16,8 +15,8 @@ extern crate image;
 use mimalloc::MiMalloc;
 
 pub mod app;
-pub mod home;
 pub mod grabber;
+pub mod home;
 pub mod menu;
 pub mod renderer;
 pub mod util;

@@ -1,23 +1,19 @@
-
-
 pub const ASPECT_RATIO: f32 = 1.78;
 
-pub mod menu;
 pub mod collection;
-pub mod tile;
+pub mod menu;
 pub mod position;
 pub mod prelude;
+pub mod tile;
 
-pub use menu::{Menu};
-pub use tile::{Tile};
-pub use collection::{Collection};
+pub use collection::Collection;
+pub use menu::Menu;
 pub use position::{Position, PositionHierarchy};
+pub use tile::Tile;
 
-use winit::event::WindowEvent;
-use crate::{
-    grabber::HttpGrabber,
-};
+use crate::grabber::HttpGrabber;
 use anyhow::Result;
+use winit::event::WindowEvent;
 
 pub trait EventGrab {
     // Pass along events to the UI elements.
@@ -39,5 +35,7 @@ pub trait SetRenderDetails {
     fn set_render_details(&mut self, renderer: &mut crate::renderer::Renderer);
 
     // Only set portions of the renderer every frame instead of all at once.
-    fn partial_set_render_details(&mut self, renderer: &mut crate::renderer::Renderer) { self.set_render_details(renderer); }
+    fn partial_set_render_details(&mut self, renderer: &mut crate::renderer::Renderer) {
+        self.set_render_details(renderer);
+    }
 }

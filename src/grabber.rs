@@ -4,13 +4,13 @@ use flume::{Receiver, Sender};
 use futures_util::StreamExt;
 use reqwest::header::OccupiedEntry;
 use reqwest::{Client, RequestBuilder};
-use tokio::task::{self, JoinHandle};
 use tokio::sync::Mutex;
+use tokio::task::{self, JoinHandle};
 
-use std::task::Poll;
-use std::collections::{HashMap, HashSet};
 use std::collections::hash_map::Entry;
-use std::sync::{Arc};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::task::Poll;
 
 pub type HttpResponse = Poll<Result<Bytes>>;
 type ResponseCache = Arc<Mutex<HashMap<String, HttpResponse>>>;
@@ -22,13 +22,10 @@ pub struct HttpGrabber {
     pub response_receive: Receiver<HttpResponse>,
 }
 
-pub async fn spawn(
-    request_receive: Receiver<String>,
-    response_transmit: Sender<HttpResponse>,
-) {
+pub async fn spawn(request_receive: Receiver<String>, response_transmit: Sender<HttpResponse>) {
     let client = Client::new();
     let mut requests = request_receive.into_stream();
-    
+
     let responses: ResponseCache = Arc::new(Mutex::new(HashMap::new()));
 
     while let Some(url) = requests.next().await {
@@ -42,7 +39,12 @@ pub async fn spawn(
     }
 }
 
-pub async fn process(client: reqwest::Client, cache: ResponseCache, url: String, response_transmit: Sender<HttpResponse>) {
+pub async fn process(
+    client: reqwest::Client,
+    cache: ResponseCache,
+    url: String,
+    response_transmit: Sender<HttpResponse>,
+) {
     let mut locked_responses = cache.lock().await;
 
     match locked_responses.entry(url.clone()) {
@@ -53,14 +55,20 @@ pub async fn process(client: reqwest::Client, cache: ResponseCache, url: String,
                 Poll::Pending => Poll::Pending,
             };
 
-            response_transmit.send_async(response).await.expect("send response")
+            response_transmit
+                .send_async(response)
+                .await
+                .expect("send response")
         }
         Entry::Vacant(entry) => {
             entry.insert(Poll::Pending);
 
             // need to kill the mutex early, otherwise this is going to be locked until this .
-            drop(locked_responses); 
-            response_transmit.send_async(Poll::Pending).await.expect("send pending");
+            drop(locked_responses);
+            response_transmit
+                .send_async(Poll::Pending)
+                .await
+                .expect("send pending");
 
             let request = client.get(url.clone());
             let response = fetch_http(request).await;

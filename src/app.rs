@@ -1,26 +1,22 @@
-
 pub use anyhow::Result;
+use bytes::Bytes;
+use glam::{Vec2, Vec3};
 use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use bytes::Bytes;
-use glam::{Vec2, Vec3};
 
 pub use crate::{
-    renderer::Renderer,
     grabber::HttpGrabber,
-    menu::{Menu, EventGrab, Collection, PositionHierarchy, Tile},
     home::Home,
     image::EncodableLayout,
+    menu::{Collection, EventGrab, Menu, PositionHierarchy, Tile},
+    renderer::Renderer,
 };
 
-use std::{
-    collections::HashMap,
-    task::Poll,
-};
+use std::{collections::HashMap, task::Poll};
 
 pub struct App {
     renderer: Renderer,
@@ -104,19 +100,24 @@ impl App {
                             } => *control_flow = ControlFlow::Exit,
 
                             WindowEvent::KeyboardInput {
-                                input: KeyboardInput {
-                                    state: ElementState::Pressed,
-                                    virtual_keycode: Some(VirtualKeyCode::F11),
-                                    ..
-                                },
+                                input:
+                                    KeyboardInput {
+                                        state: ElementState::Pressed,
+                                        virtual_keycode: Some(VirtualKeyCode::F11),
+                                        ..
+                                    },
                                 ..
                             } => {
                                 if window.fullscreen().is_some() {
                                     window.set_fullscreen(None);
                                 } else {
-                                    if let Some(monitor) = event_loop_window_target.primary_monitor() {
+                                    if let Some(monitor) =
+                                        event_loop_window_target.primary_monitor()
+                                    {
                                         if let Some(video_mode) = monitor.video_modes().next() {
-                                            window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(video_mode)));
+                                            window.set_fullscreen(Some(
+                                                winit::window::Fullscreen::Exclusive(video_mode),
+                                            ));
                                         }
                                     }
                                 }
@@ -137,7 +138,7 @@ impl App {
                     match renderer.render() {
                         Ok(_) => {}
                         Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size()),
-                        Err(wgpu::SurfaceError::Outdated) => {},
+                        Err(wgpu::SurfaceError::Outdated) => {}
                         Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                         Err(e) => eprintln!("{:?}", e),
                     }

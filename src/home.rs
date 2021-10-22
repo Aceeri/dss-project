@@ -48,6 +48,7 @@ pub struct Set {
     //pub meta: Option<Meta>,
     //pub type: String,
     //pub style: Option<String>,
+    pub text: TextRefs,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -274,9 +275,16 @@ mod test {
         let _img = image::load_from_memory(bytes.as_bytes()).expect("load image from response");
     }
 
+    #[test]
     fn fetch_text() {
         let home = fetch_home();
 
-        home.data.standard_collection.containers[0].set
+        let details = home.data.standard_collection.containers[0]
+            .set
+            .text
+            .title
+            .full
+            .details();
+        println!("{:?}", details.content);
     }
 }

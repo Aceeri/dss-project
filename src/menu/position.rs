@@ -1,4 +1,3 @@
-
 use glam::Vec3;
 
 #[derive(Debug, Clone)]
