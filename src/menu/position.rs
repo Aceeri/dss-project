@@ -13,15 +13,18 @@ impl Position {
             local_position: Vec3::ZERO,
         }
     }
+
+    #[inline]
+    pub fn absolute_position(&self) -> Vec3 {
+        self.parent_position + self.local_position
+    }
 }
 
-// Maybe it would be better to just use Rc/Arc and have the children reference the parent's position?
 pub trait PositionHierarchy {
     fn position(&self) -> &Position;
     fn position_mut(&mut self) -> &mut Position;
     fn absolute_position(&self) -> Vec3 {
-        let position = self.position();
-        position.parent_position + position.local_position
+        self.position().absolute_position()
     }
     fn set_position(&mut self, local_position: &Vec3) {
         self.position_mut().local_position = *local_position;

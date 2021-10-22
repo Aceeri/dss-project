@@ -199,6 +199,7 @@ impl Pollable for Menu {
                 Ok(done)
             }
             None => {
+                /*
                 match grabber.poll_request(HOME_URL.to_owned())? {
                     Poll::Pending => Ok(false),
                     Poll::Ready(home) => {
@@ -210,6 +211,8 @@ impl Pollable for Menu {
                         Ok(false)
                     }
                 }
+                */
+                Ok(true)
             }
         }
     }
