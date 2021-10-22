@@ -43,5 +43,14 @@ var s_diffuse: sampler;
 fn main(
     in: VertexOutput
 ) -> [[location(0)]] vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.tex_coords) * vec4<f32>(1.0, 1.0, 1.0, 0.5);
+    var sampled: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
+    // If the color of this pixel is nothing or basically nothing, just discard it.
+    // otherwise transparent pixels would overwrite other pixels when compared in the depth buffer
+    // and you get a weird clipping with transparent images.
+    if (sampled.a <= 0.0) {
+        discard;
+    }
+
+    return sampled;
 }

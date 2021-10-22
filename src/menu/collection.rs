@@ -8,7 +8,7 @@ use crate::{
     renderer::Renderer,
 };
 
-pub const TILE_SPACING: f32 = 0.2;
+pub const TILE_SPACING: f32 = 0.0;
 
 #[derive(Debug, Clone)]
 pub struct Collection {
