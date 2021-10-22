@@ -9,9 +9,13 @@ to deal with fetching resources from the API so probably somewhere around 1.45.0
 cargo run --release
 ```
 
+
+## Controls
+```
 Arrow Keys - Navigation
 F11 - Fullscreen (kind of buggy, need to fix inner size issues when going exclusive)
 Esc - Close window
+```
 
 ## TODO Improvements
 - Cache images locally to free up memory when not in use, but not require as much future network bandwidth.
