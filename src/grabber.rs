@@ -58,7 +58,7 @@ pub async fn process(client: reqwest::Client, cache: ResponseCache, url: String,
         Entry::Vacant(entry) => {
             entry.insert(Poll::Pending);
 
-            // need to kill the mutex early, otherwise this is going to be locked forever.
+            // need to kill the mutex early, otherwise this is going to be locked until this .
             drop(locked_responses); 
             response_transmit.send_async(Poll::Pending).await.expect("send pending");
 

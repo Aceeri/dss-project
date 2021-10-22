@@ -59,7 +59,7 @@ pub struct Item {
     //encoded_series_id: String,
     pub image: ImageRefs,
     //series_id: Uuid,
-    //text: Text,
+    pub text: TextRefs,
     //text_experience_id: Uuid,
     //tags: Vec<Tag>,
     //media_rights: MediaRights,
@@ -82,6 +82,47 @@ pub enum Image {
     Default { default: ImageDetails },
     Series { default: ImageDetails },
     Program { default: ImageDetails },
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextRefs {
+    pub title: Title,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Title {
+    pub slug: Option<Text>,
+    pub full: Text,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Text {
+    Set { default: TextDetails },
+    Collection { default: TextDetails },
+    Program { default: TextDetails },
+    Series { default: TextDetails },
+}
+
+impl Text {
+    pub fn details(&self) -> &TextDetails {
+        match self {
+            Text::Set { default } => default,
+            Text::Collection { default } => default,
+            Text::Program { default } => default,
+            Text::Series { default } => default,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TextDetails {
+    pub content: String,
+    pub language: String,
+    //sourceEntity: String,
 }
 
 impl Image {
@@ -190,26 +231,25 @@ pub struct Slug {
 mod test {
     use crate::home::Home;
 
-    // Can we fetch and deserialize the home screen.
-    #[test]
-    fn deserialize() {
+    fn fetch_home() -> Home {
         let url = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
         reqwest::blocking::get(url)
             .expect("response from url")
             .json::<Home>()
-            .expect("working deserialization");
+            .expect("working deserialization")
+    }
+
+    // Can we fetch and deserialize the home screen.
+    #[test]
+    fn deserialize() {
+        fetch_home();
     }
 
     // Can fetch the home screen and load an image correctly. Somewhat redundant with deserialization.
     #[test]
     fn fetch_png() {
         use crate::image::EncodableLayout;
-
-        let url = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
-        let home = reqwest::blocking::get(url)
-            .expect("response from url")
-            .json::<Home>()
-            .expect("working deserialization");
+        let home = fetch_home();
 
         let items = home.data.standard_collection.containers[0]
             .set
@@ -232,5 +272,11 @@ mod test {
             .expect("expected jpeg bytes");
 
         let _img = image::load_from_memory(bytes.as_bytes()).expect("load image from response");
+    }
+
+    fn fetch_text() {
+        let home = fetch_home();
+
+        home.data.standard_collection.containers[0].set
     }
 }

@@ -137,6 +137,7 @@ impl App {
                     match renderer.render() {
                         Ok(_) => {}
                         Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size()),
+                        Err(wgpu::SurfaceError::Outdated) => {},
                         Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                         Err(e) => eprintln!("{:?}", e),
                     }

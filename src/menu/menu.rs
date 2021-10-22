@@ -64,7 +64,7 @@ impl Menu {
 
         if let Some(home) = &self.home {
             for container in &home.data.standard_collection.containers {
-                let mut collection = Collection::new();
+                let mut collection = Collection::new("test".to_owned());
                 
                 if let Some(items) = &container.set.items {
                     for item in items {
@@ -255,26 +255,13 @@ mod test {
             url: "dummy".to_owned(),
         };
 
-        let mut menu = Menu {
-            home: None,
-            position: Position::new(),
-            collections: vec![Collection {
-                position: Position::new(),
-                tiles: vec![Tile {
-                    position: Position::new(),
-                    size: Vec2::ZERO,
-                    focused: false,
-                    image_bytes: None,
-                    image_instance: None,
-                    details: dummy_details.clone(),
-                }],
-                focused: false,
-                dirty_list: Vec::new(),
-            }],
+        let mut menu = Menu::new();
 
-            focused_collection: 0,
-            focused_tile: 0,
-        };
+        let mut collection = Collection::new("dummy".to_owned());
+        let tile = Tile::new(dummy_details.clone());
+        collection.push_tile(tile);
+
+        menu.push_collection(collection);
 
         assert_eq!(menu.absolute_position(), Vec3::ZERO);
         assert_eq!(menu.collections[0].absolute_position(), Vec3::ZERO);
@@ -303,7 +290,7 @@ mod test {
             Vec3::new(30.0, 30.0, 30.0)
         );
 
-        let mut new_collection = Collection::new();
+        let mut new_collection = Collection::new("dummy".to_owned());
         let mut new_tile = Tile::new(dummy_details);
         new_collection.push_tile(new_tile);
         menu.push_collection(new_collection);

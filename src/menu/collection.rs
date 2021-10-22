@@ -14,6 +14,7 @@ pub const TILE_SPACING: f32 = 0.2;
 #[derive(Debug, Clone)]
 pub struct Collection {
     position: Position,
+    title: String,
     pub tiles: Vec<Tile>,
     focused: bool,
 
@@ -21,9 +22,10 @@ pub struct Collection {
 }
 
 impl Collection {
-    pub fn new() -> Self {
+    pub fn new(title: String) -> Self {
         Self {
             position: Position::new(),
+            title: title,
             tiles: Vec::new(),
             focused: false,
             
