@@ -6,7 +6,7 @@ use winit::{
     window::Window,
 };
 
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 
 use std::mem;
 
@@ -123,6 +123,11 @@ impl Camera {
         );
         ortho * view
     }
+
+    pub fn point_in_window<V: AsRef<Vec2>>(&self, point: V) -> bool {
+        let point = point.as_ref();
+        point.x > self.left && point.x < self.right && point.y > self.top && point.y < -self.bottom
+    }
 }
 
 // Something that we will actually send to the GPU for the shaders to use.
@@ -200,7 +205,7 @@ impl Renderer {
                 force_fallback_adapter: false,
             })
             .await
-            .unwrap();
+            .ok_or(anyhow!("could not find adapter that meet requirements"))?;
 
         let (device, queue) = adapter
             .request_device(
@@ -211,12 +216,14 @@ impl Renderer {
                 },
                 None,
             )
-            .await
-            .unwrap();
+            .await?;
+
+        let format = surface.get_preferred_format(&adapter)
+            .ok_or(anyhow!("surface is incompatible with adapter"))?;
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
+            format: format,
             width: size.width,
             height: size.height,
             present_mode: wgpu::PresentMode::Fifo,

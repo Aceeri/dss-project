@@ -125,6 +125,23 @@ impl EventGrab for Menu {
                 input:
                     KeyboardInput {
                         state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::LShift),
+                        ..
+                    },
+                ..
+            } => {
+                match self.collections.get(self.focused_collection) {
+                    Some(collection) => {
+                        println!("{:?}", collection.absolute_position());
+                    }
+                    None => {},
+                }
+                return true;
+            }
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
                         virtual_keycode:
                             Some(
                                 direction @ VirtualKeyCode::Down
@@ -199,7 +216,6 @@ impl Pollable for Menu {
                 Ok(done)
             }
             None => {
-                /*
                 match grabber.poll_request(HOME_URL.to_owned())? {
                     Poll::Pending => Ok(false),
                     Poll::Ready(home) => {
@@ -211,8 +227,6 @@ impl Pollable for Menu {
                         Ok(false)
                     }
                 }
-                */
-                Ok(true)
             }
         }
     }

@@ -1,12 +1,8 @@
 [package]
 name = "dss"
 version = "0.1.0"
-edition = "2021"
+edition = "2018"
 resolver = "2"
-
-[profile.release]
-opt-level = 3
-debug = true
 
 [features]
 default = []
@@ -31,4 +27,4 @@ rectangle-pack = "0.4.2"
 flume = "0.10.9"
 futures-util = "0.3.17"
 bytes = "1.1.0"
-
+glyph_brush = "0.7.2"

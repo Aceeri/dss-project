@@ -9,7 +9,8 @@ extern crate serde_json;
 extern crate tokio;
 extern crate uuid;
 extern crate winit;
-
+#[macro_use]
+extern crate anyhow;
 extern crate image;
 
 pub mod app;

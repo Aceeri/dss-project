@@ -32,10 +32,11 @@ impl App {
             .with_title("DSS Project".to_string());
 
         let window = window_builder.build(&event_loop).unwrap();
+        let renderer = Renderer::new(&window).await?;
+
         let mut menu = Menu::new();
         menu.set_position(&Vec3::new(1.2, 1.0, 0.0));
 
-        let renderer = Renderer::new(&window).await?;
         let http_grabber = HttpGrabber::new();
 
         Ok(App {
