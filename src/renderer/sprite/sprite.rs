@@ -1,7 +1,9 @@
 use anyhow::Result;
 use wgpu::util::DeviceExt;
 
-use crate::renderer::{Renderer, Vertex};
+use crate::renderer::{Vertex};
+
+use std::mem;
 
 // Just define a basic quad for tile images.
 pub const VERTICES: &[Vertex] = &[
@@ -34,13 +36,13 @@ pub const INDICES: &[u16] = &[0, 1, 2, 2, 3, 0];
 pub const NUM_INDICES: u32 = INDICES.len() as u32;
 
 // Just separating this out so we don't have to keep sending vertices/indices every draw call.
-pub struct ImageMesh {
+pub struct SpriteMesh {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
 }
 
-impl ImageMesh {
-    pub fn new(device: &wgpu::Device) -> Result<ImageMesh> {
+impl SpriteMesh {
+    pub fn new(device: &wgpu::Device) -> Result<Self> {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
@@ -53,44 +55,42 @@ impl ImageMesh {
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        Ok(ImageMesh {
+        Ok(Self {
             vertex_buffer,
             index_buffer,
         })
     }
 }
 
-pub struct Image {
+pub struct SpriteTexture {
     pub texture: crate::renderer::Texture,
     pub bind_group: wgpu::BindGroup,
 }
 
-#[derive(Debug, Clone)]
-pub struct ImageHandle(pub usize);
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct SpriteInstance {
+    pub position: [f32; 3],
+    pub size: [f32; 2],
+}
 
-impl Renderer {
-    pub fn create_image(&mut self, texture: crate::renderer::Texture) -> ImageHandle {
-        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&texture.view),
+impl SpriteInstance {
+    pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
             ],
-            label: Some("diffuse_bind_group"),
-        });
-
-        let image = Image {
-            bind_group,
-            texture,
-        };
-
-        let index = self.images.push(image);
-        ImageHandle(index)
+        }
     }
 }
