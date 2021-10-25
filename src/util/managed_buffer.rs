@@ -4,6 +4,10 @@ use wgpu::util::DeviceExt;
 
 use super::ReuseVec;
 
+use stsd::{
+    ops::{RangeBounds},
+}
+
 pub struct ManagedBuffer<T: bytemuck::Pod + bytemuck::Zeroable> {
     label: Option<String>,
     usage: wgpu::BufferUsages,
@@ -33,6 +37,10 @@ where
             expand: false,
             update: false,
         }
+    }
+
+    pub fn buffer_slice<S: RangeBounds<wgpu::BufferAddress>>(&self, range: S) -> wgpu::BufferSlice<'_> {
+        self.buffer.slice(range)
     }
 
     pub fn push(&mut self, element: T) -> usize {

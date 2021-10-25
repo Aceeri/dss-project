@@ -117,45 +117,11 @@ impl Renderer {
                     stencil_ops: None,
                 }),
             });
-
-            self.sprite_pass.render(&self.context, &mut encoder, &view);
-
-            render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
-
-            // Ideally we would batch this into a single draw call by using texture atlases/arrays but
-            // for the sake of simplicity going to just do one draw call per tile image.
-            //
-            // Texture atlases have their own problems, and texture arrays aren't supported in older GPUs so probably
-            // can't be used in this case.
-            //
-            // Could also have some fun with multithreading these draw calls although I don't know how much performance
-            // that would really save in this case.
-
-            // Render Images
-            render_pass.set_vertex_buffer(0, self.image_mesh.vertex_buffer.slice(..));
-            render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-            render_pass.set_index_buffer(
-                self.image_mesh.index_buffer.slice(..),
-                wgpu::IndexFormat::Uint16,
-            );
-
-            for image_instance in self.image_instances.iter() {
-                let image = self.images.get(image_instance.image.0);
-                if let Some(image) = image {
-                    render_pass.set_bind_group(0, &image.bind_group, &[]);
-                    render_pass.draw_indexed(
-                        0..crate::renderer::sprite::NUM_INDICES,
-                        0,
-                        image_instance.instance.0 as u32..image_instance.instance.0 as u32 + 1,
-                    );
-                }
-            }
-
-            // TODO: Render text
         }
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.sprite_pass.render(&self.context, &mut encoder, &view);
+
+        self.context.queue().submit(std::iter::once(encoder.finish()));
 
         // Need to present the wgpu frame now instead of just dropping.
         frame.present();
@@ -415,5 +381,9 @@ impl RenderContext {
 
     pub fn camera_bind_group_layout(&self) -> &wgpu::BindGroupLayout {
         &self.camera_bind_group_layout
+    }
+
+    pub fn clear_color(&self) -> &wgpu::Color {
+        &self.clear_color
     }
 }

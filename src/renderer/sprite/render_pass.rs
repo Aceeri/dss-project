@@ -9,7 +9,7 @@ use crate::{
 };
 use super::{sprite, SpriteTexture, SpriteInstance, SpriteMesh};
 
-#[derive(Debug, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct SpriteTextureId(usize);
 
 impl SpriteTextureId {
@@ -178,29 +178,39 @@ impl SpritePass {
         })
     }
 
-    pub fn render(&mut self, context: &RenderContext) {
+    pub fn render(&mut self, context: &RenderContext, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Sprite Pass"),
+            color_attachments: &[wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                },
+            }],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &context.depth_texture().view,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: true,
+                }),
+                stencil_ops: None,
+            }),
+        });
 
-        context.encoder()
-        encoder.set_pipeline(&self.pipeline);
-        encoder.set_vertex_buffer(0, self.mesh.vertex_buffer.slice(..));
+        render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(1, &context.camera_bind_group(), &[]);
+
+        render_pass.set_vertex_buffer(0, self.mesh.vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, self.instances.buffer_slice(..));
+        render_pass.set_index_buffer(self.mesh.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
         // Ideally we would batch this into a single draw call by using texture atlases/arrays but
         // for the sake of simplicity going to just do one draw call per tile image.
         //
         // Texture atlases have their own problems, and texture arrays aren't supported in older GPUs so probably
         // can't be used in this case.
-        //
-        // Could also have some fun with multithreading these draw calls although I don't know how much performance
-        // that would really save in this case.
-
-        // Render Images
-        render_pass.set_vertex_buffer(0, sprite_mesh.vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
-        render_pass.set_index_buffer(
-            self.image_mesh.index_buffer.slice(..),
-            wgpu::IndexFormat::Uint16,
-        );
 
         for sprite in self.sprites.iter() {
             let texture = self.textures.get(sprite.texture.id());
@@ -213,15 +223,18 @@ impl SpritePass {
                 );
             }
         }
-
-        encoder.finish(&wgpu::RenderBundleDescriptor {
-            label: Some("sprite"),
-        })
     }
 
-    pub fn create_image(&mut self, device: &wgpu::Device, texture: crate::renderer::Texture) -> SpriteHandle {
+    // Add a new texture to the sprite pass.
+    pub fn create_sprite_texture(&mut self, device: &wgpu::Device, texture: Texture) -> SpriteTextureId {
+        let sprite_texture = SpritePass::bind_sprite_texture(device, self.texture_bind_group_layout, texture);
+        let index = self.textures.push(sprite_texture);
+        SpriteTextureId(index)
+    }
+
+    pub fn bind_sprite_texture(device: &wgpu::Device, layout: wgpu::BindGroupLayout, texture: Texture) -> SpriteTexture {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &self.texture_bind_group_layout,
+            layout: &layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -232,15 +245,12 @@ impl SpritePass {
                     resource: wgpu::BindingResource::Sampler(&texture.sampler),
                 },
             ],
-            label: Some("diffuse_bind_group"),
+            label: Some("sprite_texture_bind_group"),
         });
 
-        let sprite = Sprite {
+        SpriteTexture {
             bind_group,
             texture,
-        };
-
-        let index = self.sprites.push(image);
-        SpriteHandle(index)
+        }
     }
 }
