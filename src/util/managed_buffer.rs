@@ -4,27 +4,35 @@ use wgpu::util::DeviceExt;
 
 use super::ReuseVec;
 
-use stsd::{
+use std::{
     ops::{RangeBounds},
+    marker::PhantomData,
+};
+
+pub trait IdIndex {
+    fn id(&self) -> usize;
+    fn from_index(index: usize) -> Self;
 }
 
-pub struct ManagedBuffer<T: bytemuck::Pod + bytemuck::Zeroable> {
-    label: Option<String>,
+pub struct ManagedBuffer<T, I: IdIndex> {
+    label: Option<&'static str>,
     usage: wgpu::BufferUsages,
     contents: ReuseVec<T>,
     buffer: wgpu::Buffer,
     expand: bool,
     update: bool,
+    phantom: PhantomData<I>,
 }
 
-impl<T> ManagedBuffer<T>
+impl<T, I> ManagedBuffer<T, I>
 where
-    T: bytemuck::Pod + bytemuck::Zeroable
+    T: bytemuck::Pod + bytemuck::Zeroable,
+    I: IdIndex,
 {
-    pub fn new(device: &wgpu::Device, label: Option<String>, usage: wgpu::BufferUsages) -> ManagedBuffer<T> {
+    pub fn new(device: &wgpu::Device, label: Option<&'static str>, usage: wgpu::BufferUsages) -> ManagedBuffer<T, I> {
         let buffer = device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: label.map(|s| s.as_str()),
+                label: label,
                 contents: &[],
                 usage,
             });
@@ -36,6 +44,7 @@ where
             buffer,
             expand: false,
             update: false,
+            phantom: PhantomData,
         }
     }
 
@@ -43,13 +52,13 @@ where
         self.buffer.slice(range)
     }
 
-    pub fn push(&mut self, element: T) -> usize {
+    pub fn push(&mut self, element: T) -> I {
         self.expand = true;
-        self.contents.push(element)
+        I::from_index(self.contents.push(element))
     }
 
-    pub fn set(&mut self, index: usize, element: T) {
-        match self.contents.get_mut(index) {
+    pub fn set(&mut self, index: I, element: T) {
+        match self.contents.get_mut(index.id()) {
             Some(mut content) => {
                 *content = element;
                 self.update = true;
@@ -61,9 +70,9 @@ where
     pub fn update_buffer(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         // Probably could implement some amortized growing here like a Vec.
         if self.expand {
-            let buffer = device
+            self.buffer = device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: self.label.map(|s| s.as_str()),
+                    label: self.label,
                     contents: bytemuck::cast_slice(self.contents.current().as_slice()),
                     usage: self.usage,
                 });

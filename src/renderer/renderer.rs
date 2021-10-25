@@ -10,7 +10,7 @@ use glam::{Mat4, Vec2, Vec3};
 
 use std::mem;
 
-use super::{Camera, CameraUniform, Sprite, SpriteHandle, SpriteMesh, Texture};
+use super::{Camera, CameraUniform, SpritePass, Sprite, SpriteId, SpriteMesh, Texture};
 use crate::util::ReuseVec;
 
 #[repr(C)]
@@ -41,25 +41,32 @@ impl Vertex {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ImageInstance {
-    image: ImageHandle,
-    instance: InstanceHandle,
-}
-
 pub struct Renderer {
-    context: RenderContext, 
-    sprite_pass: SpritePass,
+    pub context: RenderContext, 
+    pub sprite_pass: SpritePass,
     //text_pass: TextPass,
 }
 
 impl Renderer {
     pub async fn new(window: &Window) -> Result<Self> {
         let context = RenderContext::new(window).await?;
-        let sprite_pass = SpritePass::new(context);
+        let sprite_pass = SpritePass::new(&context)?;
         Ok(Self {
             context,
+            sprite_pass,
         })
+    }
+
+    pub fn context(&self) -> &RenderContext {
+        &self.context
+    }
+
+    pub fn size(&self) -> winit::dpi::PhysicalSize<u32> {
+        self.context().size()
+    }
+
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.context.resize(new_size);
     }
 
     pub fn input(&mut self, _event: &WindowEvent) -> bool {
@@ -104,7 +111,7 @@ impl Renderer {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(self.context.clear_color()),
+                        load: wgpu::LoadOp::Clear(*self.context.clear_color()),
                         store: true,
                     },
                 }],
@@ -129,49 +136,6 @@ impl Renderer {
         Ok(())
     }
 
-    // TODO: removing instances.
-
-    pub fn create_instance(&mut self, instance: Instance) -> InstanceHandle {
-        let index = self.instances.push(instance);
-
-        self.expand_instance_buffer = true;
-
-        InstanceHandle(index)
-    }
-
-    pub fn create_image_instance(
-        &mut self,
-        image_handle: ImageHandle,
-        instance_handle: InstanceHandle,
-    ) -> ImageInstanceHandle {
-        let index = self.image_instances.push(ImageInstance {
-            image: image_handle,
-            instance: instance_handle,
-        });
-
-        ImageInstanceHandle(index)
-    }
-
-    pub fn set_instance(&mut self, handle: InstanceHandle, new_instance: Instance) {
-        match self.instances.get_mut(handle.0) {
-            Some(instance) => {
-                *instance = new_instance;
-                self.update_instance_buffer = true;
-            }
-            None => {}
-        }
-    }
-
-    pub fn set_image_instance_position(
-        &mut self,
-        handle: ImageInstanceHandle,
-        new_instance: Instance,
-    ) {
-        let image_instance = self.image_instances.get(handle.0).cloned();
-        if let Some(image_instance) = image_instance {
-            self.set_instance(image_instance.instance, new_instance);
-        }
-    }
 }
 
 // Commonly shared state between render passes.

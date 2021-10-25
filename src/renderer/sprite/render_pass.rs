@@ -5,7 +5,7 @@ use anyhow::Result;
 
 use crate::{
     renderer::{Vertex, Texture, RenderContext},
-    util::{ReuseVec, ManagedBuffer},
+    util::{ReuseVec, ManagedBuffer, IdIndex},
 };
 use super::{sprite, SpriteTexture, SpriteInstance, SpriteMesh};
 
@@ -13,27 +13,22 @@ use super::{sprite, SpriteTexture, SpriteInstance, SpriteMesh};
 pub struct SpriteTextureId(usize);
 
 impl SpriteTextureId {
-    fn id(&self) -> usize {
-        self.0
-    }
+    fn id(&self) -> usize { self.0 }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct SpriteInstanceId(usize);
 
-impl SpriteInstanceId {
-    fn id(&self) -> usize {
-        self.0
-    }
+impl IdIndex for SpriteInstanceId {
+    fn id(&self) -> usize { self.0 }
+    fn from_index(index: usize) -> Self { Self(index) }
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct SpriteId(usize);
 
 impl SpriteId {
-    fn id(&self) -> usize {
-        self.0
-    }
+    fn id(&self) -> usize { self.0 }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -50,7 +45,7 @@ pub struct SpritePass {
     texture_bind_group_layout: wgpu::BindGroupLayout,
 
     textures: ReuseVec<SpriteTexture>,
-    instances: ManagedBuffer<SpriteInstance>,
+    instances: ManagedBuffer<SpriteInstance, SpriteInstanceId>,
     mesh: SpriteMesh,
 
     // Pair of instance and sprite.
@@ -142,7 +137,7 @@ impl SpritePass {
         };
 
         let pipeline = context.device().create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
+            label: Some("Sprite Render Pipeline"),
             layout: Some(&pipeline_layout),
             vertex: vertex_state,
             fragment: Some(fragment_state),
@@ -157,8 +152,8 @@ impl SpritePass {
 
         let sprite_instances = ManagedBuffer::new(
             context.device(),
-            Some("sprite instance buffer".to_owned()),
-            wgpu::BufferUsages::VERTEX,
+            Some("sprite instance buffer"),
+            wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         );
 
         Ok(Self {
@@ -179,6 +174,8 @@ impl SpritePass {
     }
 
     pub fn render(&mut self, context: &RenderContext, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+        self.instances.update_buffer(context.device(), context.queue());
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Sprite Pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -226,15 +223,15 @@ impl SpritePass {
     }
 
     // Add a new texture to the sprite pass.
-    pub fn create_sprite_texture(&mut self, device: &wgpu::Device, texture: Texture) -> SpriteTextureId {
-        let sprite_texture = SpritePass::bind_sprite_texture(device, self.texture_bind_group_layout, texture);
+    pub fn add_texture(&mut self, device: &wgpu::Device, texture: Texture) -> SpriteTextureId {
+        let sprite_texture = SpritePass::bind_sprite_texture(device, &self.texture_bind_group_layout, texture);
         let index = self.textures.push(sprite_texture);
         SpriteTextureId(index)
     }
 
-    pub fn bind_sprite_texture(device: &wgpu::Device, layout: wgpu::BindGroupLayout, texture: Texture) -> SpriteTexture {
+    pub fn bind_sprite_texture(device: &wgpu::Device, layout: &wgpu::BindGroupLayout, texture: Texture) -> SpriteTexture {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &layout,
+            layout: layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -251,6 +248,26 @@ impl SpritePass {
         SpriteTexture {
             bind_group,
             texture,
+        }
+    }
+
+    pub fn add_instance(&mut self, instance: SpriteInstance) -> SpriteInstanceId {
+        self.instances.push(instance)
+    }
+
+    pub fn add_sprite(&mut self, texture: SpriteTextureId, instance: SpriteInstanceId) -> SpriteId {
+        let index = self.sprites.push(Sprite { texture, instance, });
+        SpriteId(index)
+    }
+
+    pub fn set_instance(&mut self, id: SpriteInstanceId, new_instance: SpriteInstance) {
+        self.instances.set(id, new_instance);
+    }
+
+    pub fn set_sprite_instance( &mut self, handle: SpriteId, new_instance: SpriteInstance) {
+        let sprite = self.sprites.get(handle.0).cloned();
+        if let Some(sprite) = sprite {
+            self.set_instance(sprite.instance, new_instance);
         }
     }
 }

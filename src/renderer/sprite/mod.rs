@@ -3,4 +3,4 @@ pub mod render_pass;
 pub mod sprite;
 
 pub use sprite::{SpriteMesh, SpriteInstance, SpriteTexture};
-pub use render_pass::{SpritePass};
+pub use render_pass::{SpritePass, Sprite, SpriteId, SpriteInstanceId, SpriteTextureId};
