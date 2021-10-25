@@ -146,6 +146,7 @@ impl SetRenderDetails for Tile {
                 let Renderer {
                     sprite_pass,
                     context,
+                    ..
                 } = renderer;
                 let image_handle = sprite_pass.add_texture(context.device(), texture);
                 let instance_handle = sprite_pass.add_instance(self.focused_instance());

@@ -10,7 +10,7 @@ use glam::{Mat4, Vec2, Vec3};
 
 use std::mem;
 
-use super::{Camera, CameraUniform, SpritePass, Sprite, SpriteId, SpriteMesh, Texture};
+use super::{Camera, CameraUniform, SpritePass, Sprite, SpriteInstance, SpriteId, SpriteMesh, Texture};
 use crate::util::ReuseVec;
 
 #[repr(C)]
@@ -44,6 +44,7 @@ impl Vertex {
 pub struct Renderer {
     pub context: RenderContext, 
     pub sprite_pass: SpritePass,
+    pub test_pass: SpritePass,
     //text_pass: TextPass,
 }
 
@@ -51,9 +52,17 @@ impl Renderer {
     pub async fn new(window: &Window) -> Result<Self> {
         let context = RenderContext::new(window).await?;
         let sprite_pass = SpritePass::new(&context)?;
+        let mut test_pass = SpritePass::new(&context)?;
+
+        let fallback_bytes = include_bytes!("test.png");
+        let texture = Texture::from_bytes(&context.device(), &context.queue(), fallback_bytes, "fallback.png")?;
+        let texture_id = test_pass.add_texture(context.device(), texture);
+        let instance_id = test_pass.add_instance(SpriteInstance { position: [0.5, 0.5, 1.0], size: [5.0, 5.0] });
+        let sprite_id = test_pass.add_sprite(texture_id, instance_id);
         Ok(Self {
             context,
             sprite_pass,
+            test_pass,
         })
     }
 
@@ -127,6 +136,7 @@ impl Renderer {
         }
 
         self.sprite_pass.render(&self.context, &mut encoder, &view);
+        self.test_pass.render(&self.context, &mut encoder, &view);
 
         self.context.queue().submit(std::iter::once(encoder.finish()));
 
