@@ -38,27 +38,28 @@ fn main(input: InstanceInput) -> VertexOutput {
     var top: f32 = input.left_top.y;
     var bottom: f32 = input.right_bottom.y;
 
-    // Counter clockwise
+    // The order of these matter, otherwise we might get
+    // triangles that don't form a quad here.
     switch(i32(input.vertex_index)) {
         case 0: {
             position = vec2<f32>(left, top);
             out.texture_coords = input.texture_left_top;
         }
         case 1: {
-            position = vec2<f32>(left, bottom);
-            out.texture_coords = vec2<f32>(input.texture_left_top.x, input.texture_right_bottom.y);
-        }
-        case 2: {
-            position = vec2<f32>(right, bottom);
-            out.texture_coords = input.texture_right_bottom;
-        }
-        case 3: {
             position = vec2<f32>(right, top);
             out.texture_coords = vec2<f32>(input.texture_right_bottom.x, input.texture_left_top.y);
         }
+        case 2: {
+            position = vec2<f32>(left, bottom);
+            out.texture_coords = vec2<f32>(input.texture_left_top.x, input.texture_right_bottom.y);
+        }
+        case 3: {
+            position = vec2<f32>(right, bottom);
+            out.texture_coords = input.texture_right_bottom;
+        }
     }
 
-    out.position = vec4<f32>(position.x / 100.0 / 25.0, -position.y / 35.0 / 25.0, 0.0, 1.0);
+    out.position = camera.view_matrix * vec4<f32>(position.x / 200.0 / 5.0, -position.y / 200.0 / 5.0, input.z, 1.0);
     out.font_color = input.color;
     return out;
 }

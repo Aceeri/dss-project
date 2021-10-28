@@ -213,7 +213,7 @@ impl TextPass {
             topology: wgpu::PrimitiveTopology::TriangleStrip,
             strip_index_format: None,
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: None,
+            cull_mode: Some(wgpu::Face::Back),
             clamp_depth: false,
             polygon_mode: wgpu::PolygonMode::Fill,
             conservative: false,
@@ -337,9 +337,8 @@ impl TextPass {
     ) {
         self.brush.queue(
             Section::default()
-                .add_text(Text::new("a quick brown fox jumps over the lazy dog").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(100.0))
-                .add_text(Text::new("A QUICK BROWN FOX JUMPS OVER THE LAZY DOG").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(100.0))
-                //.with_bounds(())
+                .add_text(Text::new("a quick brown fox jumps over the lazy dog").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(192.0))
+                .add_text(Text::new("A QUICK BROWN FOX JUMPS OVER THE LAZY DOG").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(192.0))
         );
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
