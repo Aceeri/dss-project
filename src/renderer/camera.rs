@@ -52,6 +52,7 @@ impl Camera {
 
     pub fn point_in_window<V: AsRef<Vec2>>(&self, point: V) -> bool {
         let point = point.as_ref();
+        let point = Vec3::new(point.x, point.y, 0.0) + self.eye;
         point.x > self.left && point.x < self.right && point.y > self.top && point.y < -self.bottom
     }
 }

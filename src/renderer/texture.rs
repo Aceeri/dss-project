@@ -19,6 +19,12 @@ impl Texture {
         Self::from_image(device, queue, &img, Some(label))
     }
 
+    // Create a blank RGBA8 texture with the given dimensions.
+    pub fn from_dimensions(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32, label: &str) -> Result<Self> {
+        let img = image::DynamicImage::new_rgba8(width, height);
+        Self::from_image(device, queue, &img, Some(label))
+    }
+
     pub fn from_image(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
