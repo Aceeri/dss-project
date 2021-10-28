@@ -33,8 +33,8 @@ impl GlyphInstance {
 
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
+            array_stride: mem::size_of::<GlyphInstance>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
                 wgpu::VertexAttribute { // z
                     offset: 0,
@@ -140,7 +140,7 @@ pub struct TextPass {
 impl TextPass {
     pub fn new(context: &RenderContext) -> Result<Self> {
         let font = FontArc::try_from_slice(include_bytes!("./fonts/DejaVuSans.ttf"))?;
-        let mut brush = GlyphBrushBuilder::using_font(font).build();
+        let brush = GlyphBrushBuilder::using_font(font).build();
 
         let glyph_bind_group_layout =
             context
@@ -213,7 +213,7 @@ impl TextPass {
             topology: wgpu::PrimitiveTopology::TriangleStrip,
             strip_index_format: None,
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: Some(wgpu::Face::Back),
+            cull_mode: None,
             clamp_depth: false,
             polygon_mode: wgpu::PolygonMode::Fill,
             conservative: false,
@@ -236,11 +236,7 @@ impl TextPass {
                 fragment: Some(fragment_state),
                 primitive: primitive_state,
                 depth_stencil: Some(depth_stencil_state),
-                multisample: wgpu::MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
+                multisample: wgpu::MultisampleState::default(),
             });
 
         let supported_instances = GlyphInstance::INITIAL_AMOUNT;
@@ -341,7 +337,8 @@ impl TextPass {
     ) {
         self.brush.queue(
             Section::default()
-                .add_text(Text::new("A quick brown fox jumps over the the lazy dog"))
+                .add_text(Text::new("a quick brown fox jumps over the lazy dog").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(100.0))
+                .add_text(Text::new("A QUICK BROWN FOX JUMPS OVER THE LAZY DOG").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(100.0))
                 //.with_bounds(())
         );
 
