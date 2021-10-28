@@ -1,16 +1,15 @@
-
 use anyhow::Result;
 use wgpu::util::DeviceExt;
-use winit::{
-    event::WindowEvent,
-    window::Window,
-};
+use winit::{event::WindowEvent, window::Window};
 
 use glam::{Mat4, Vec2, Vec3};
 
 use std::mem;
 
-use super::{Camera, CameraUniform, SpritePass, Sprite, SpriteInstance, SpriteId, SpriteMesh, Texture};
+use super::{
+    Camera, CameraUniform, Sprite, SpriteId, SpriteInstance, SpriteMesh, SpritePass, TextPass,
+    Texture,
+};
 use crate::util::ReuseVec;
 
 #[repr(C)]
@@ -42,27 +41,21 @@ impl Vertex {
 }
 
 pub struct Renderer {
-    pub context: RenderContext, 
+    pub context: RenderContext,
     pub sprite_pass: SpritePass,
-    pub test_pass: SpritePass,
-    //text_pass: TextPass,
+    pub text_pass: TextPass,
 }
 
 impl Renderer {
     pub async fn new(window: &Window) -> Result<Self> {
         let context = RenderContext::new(window).await?;
         let sprite_pass = SpritePass::new(&context)?;
-        let mut test_pass = SpritePass::new(&context)?;
+        let text_pass = TextPass::new(&context)?;
 
-        let fallback_bytes = include_bytes!("test.png");
-        let texture = Texture::from_bytes(&context.device(), &context.queue(), fallback_bytes, "fallback.png")?;
-        let texture_id = test_pass.add_texture(context.device(), texture);
-        let instance_id = test_pass.add_instance(SpriteInstance { position: [0.5, 0.5, 1.0], size: [5.0, 5.0] });
-        let sprite_id = test_pass.add_sprite(texture_id, instance_id);
         Ok(Self {
             context,
             sprite_pass,
-            test_pass,
+            text_pass,
         })
     }
 
@@ -97,7 +90,11 @@ impl Renderer {
         false
     }
 
-    pub fn update(&mut self) {}
+    pub fn update(&mut self) -> Result<()> {
+        self.text_pass.update(&self.context)?;
+
+        Ok(())
+    }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let frame = self.context.surface().get_current_texture()?;
@@ -105,12 +102,12 @@ impl Renderer {
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self
-            .context
-            .device()
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
+        let mut encoder =
+            self.context
+                .device()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Render Encoder"),
+                });
 
         {
             // Clear color render pass.
@@ -136,16 +133,17 @@ impl Renderer {
         }
 
         self.sprite_pass.render(&self.context, &mut encoder, &view);
-        self.test_pass.render(&self.context, &mut encoder, &view);
+        self.text_pass.render(&self.context, &mut encoder, &view);
 
-        self.context.queue().submit(std::iter::once(encoder.finish()));
+        self.context
+            .queue()
+            .submit(std::iter::once(encoder.finish()));
 
         // Need to present the wgpu frame now instead of just dropping.
         frame.present();
 
         Ok(())
     }
-
 }
 
 // Commonly shared state between render passes.
@@ -197,7 +195,8 @@ impl RenderContext {
             )
             .await?;
 
-        let format = surface.get_preferred_format(&adapter)
+        let format = surface
+            .get_preferred_format(&adapter)
             .ok_or(anyhow!("surface is incompatible with adapter"))?;
 
         let config = wgpu::SurfaceConfiguration {

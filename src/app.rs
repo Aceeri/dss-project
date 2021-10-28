@@ -132,7 +132,10 @@ impl App {
                     }
                 }
                 Event::RedrawRequested(_) => {
-                    renderer.update();
+                    if let Err(err) = renderer.update() {
+                        eprintln!("update error: {:?}", err);
+                    }
+
                     match renderer.render() {
                         Ok(_) => {}
                         Err(wgpu::SurfaceError::Lost) => renderer.resize(renderer.size()),

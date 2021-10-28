@@ -6,8 +6,6 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
-    pub width: u32,
-    pub height: u32,
 }
 
 impl Texture {
@@ -22,7 +20,13 @@ impl Texture {
     }
 
     // Create a blank RGBA8 texture with the given dimensions.
-    pub fn from_dimensions(device: &wgpu::Device, queue: &wgpu::Queue, width: u32, height: u32, label: &str) -> Result<Self> {
+    pub fn from_dimensions(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        width: u32,
+        height: u32,
+        label: &str,
+    ) -> Result<Self> {
         let img = image::DynamicImage::new_rgba8(width, height);
         Self::from_image(device, queue, &img, Some(label))
     }
@@ -82,12 +86,16 @@ impl Texture {
             texture,
             view,
             sampler,
-            width: dimensions.0,
-            height: dimensions.1,
         })
     }
 
-    pub fn write_texture(&self, queue: &wgpu::Queue, offset: [u32; 2], size: [u32; 2], rgba: &[u8]) {
+    pub fn write_texture(
+        &self,
+        queue: &wgpu::Queue,
+        offset: [u32; 2],
+        size: [u32; 2],
+        rgba: &[u8],
+    ) {
         let width = size[0];
         let height = size[1];
 

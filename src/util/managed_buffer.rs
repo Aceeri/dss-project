@@ -1,13 +1,8 @@
-
-
 use wgpu::util::DeviceExt;
 
 use super::ReuseVec;
 
-use std::{
-    ops::{RangeBounds},
-    marker::PhantomData,
-};
+use std::{marker::PhantomData, ops::RangeBounds};
 
 pub trait IdIndex {
     fn id(&self) -> usize;
@@ -29,15 +24,18 @@ where
     T: bytemuck::Pod + bytemuck::Zeroable,
     I: IdIndex,
 {
-    pub fn new(device: &wgpu::Device, label: Option<&'static str>, usage: wgpu::BufferUsages) -> ManagedBuffer<T, I> {
-        let buffer = device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: label,
-                contents: &[],
-                usage,
-            });
+    pub fn new(
+        device: &wgpu::Device,
+        label: Option<&'static str>,
+        usage: wgpu::BufferUsages,
+    ) -> ManagedBuffer<T, I> {
+        let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: label,
+            contents: &[],
+            usage,
+        });
 
-        Self { 
+        Self {
             label,
             usage,
             contents: ReuseVec::new(),
@@ -48,7 +46,10 @@ where
         }
     }
 
-    pub fn buffer_slice<S: RangeBounds<wgpu::BufferAddress>>(&self, range: S) -> wgpu::BufferSlice<'_> {
+    pub fn buffer_slice<S: RangeBounds<wgpu::BufferAddress>>(
+        &self,
+        range: S,
+    ) -> wgpu::BufferSlice<'_> {
         self.buffer.slice(range)
     }
 
@@ -62,7 +63,7 @@ where
             Some(mut content) => {
                 *content = element;
                 self.update = true;
-            },
+            }
             None => {}
         }
     }
@@ -70,12 +71,11 @@ where
     pub fn update_buffer(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
         // Probably could implement some amortized growing here like a Vec.
         if self.expand {
-            self.buffer = device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: self.label,
-                    contents: bytemuck::cast_slice(self.contents.current().as_slice()),
-                    usage: self.usage,
-                });
+            self.buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: self.label,
+                contents: bytemuck::cast_slice(self.contents.current().as_slice()),
+                usage: self.usage,
+            });
 
             self.expand = false;
             self.update = false;

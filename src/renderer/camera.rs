@@ -1,5 +1,4 @@
-
-use glam::{Vec2, Vec3, Mat4};
+use glam::{Mat4, Vec2, Vec3};
 
 // An orthographic camera, mostly just used here for keeping scaling of objects tidy, but
 // could be easily swapped out later for a perspective camera to make things look more fancy.

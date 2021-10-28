@@ -134,7 +134,7 @@ impl EventGrab for Menu {
                     Some(collection) => {
                         println!("{:?}", collection.absolute_position());
                     }
-                    None => {},
+                    None => {}
                 }
                 return true;
             }

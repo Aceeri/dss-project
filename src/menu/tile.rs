@@ -8,7 +8,7 @@ use crate::{
     grabber::HttpGrabber,
     home::ImageDetails,
     menu::prelude::*,
-    renderer::{SpriteId, SpriteInstance, Renderer, Texture},
+    renderer::{Renderer, SpriteId, SpriteInstance, Texture},
 };
 
 #[derive(Debug, Clone)]
@@ -121,7 +121,9 @@ impl SetRenderDetails for Tile {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
         match (&self.sprite, &self.texture_bytes) {
             (Some(sprite), _) => {
-                renderer.sprite_pass.set_sprite_instance(*sprite, self.focused_instance());
+                renderer
+                    .sprite_pass
+                    .set_sprite_instance(*sprite, self.focused_instance());
             }
             (None, Some(texture_bytes)) => {
                 let texture = match Texture::from_bytes(

@@ -1,6 +1,5 @@
-
 pub mod render_pass;
 pub mod sprite;
 
-pub use sprite::{SpriteMesh, SpriteInstance, SpriteTexture};
-pub use render_pass::{SpritePass, Sprite, SpriteId, SpriteInstanceId, SpriteTextureId};
+pub use render_pass::{Sprite, SpriteId, SpriteInstanceId, SpritePass, SpriteTextureId};
+pub use sprite::{SpriteInstance, SpriteMesh, SpriteTexture};

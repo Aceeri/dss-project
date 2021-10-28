@@ -1,7 +1,7 @@
 use anyhow::Result;
 use wgpu::util::DeviceExt;
 
-use crate::renderer::{Vertex};
+use crate::renderer::Vertex;
 
 use std::mem;
 
