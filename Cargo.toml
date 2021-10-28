@@ -31,3 +31,4 @@ flume = "0.10.9"
 futures-util = "0.3.17"
 bytes = "1.1.0"
 glyph_brush = "0.7.2"
+winapi = {version = "0.3", features = ["wincon", "winuser"]}

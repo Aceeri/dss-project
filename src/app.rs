@@ -28,7 +28,7 @@ impl App {
         let event_loop = EventLoop::new();
         let window_builder = WindowBuilder::new()
             .with_min_inner_size(LogicalSize::new(50.0, 50.0))
-            .with_inner_size(PhysicalSize::new(800.0, 600.0))
+            .with_inner_size(PhysicalSize::new(1920.0, 1080.0))
             .with_title("DSS Project".to_string());
 
         let window = window_builder.build(&event_loop).unwrap();
@@ -65,11 +65,11 @@ impl App {
             *control_flow = ControlFlow::Wait;
 
             if !done_polling {
-                done_polling = menu.poll(&mut http_grabber).expect("polling failed");
+                //done_polling = menu.poll(&mut http_grabber).expect("polling failed");
             }
 
             //menu.partial_set_render_details(&mut renderer);
-            menu.set_render_details(&mut renderer);
+            //menu.set_render_details(&mut renderer);
 
             match event {
                 Event::WindowEvent {
