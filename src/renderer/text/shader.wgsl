@@ -46,7 +46,7 @@ fn main(input: InstanceInput) -> VertexOutput {
         }
         case 1: {
             position = vec2<f32>(left, bottom);
-            out.texture_coords = vec2<f32>(input.texture_right_bottom.x, input.texture_left_top.y);
+            out.texture_coords = vec2<f32>(input.texture_left_top.x, input.texture_right_bottom.y);
         }
         case 2: {
             position = vec2<f32>(right, bottom);
@@ -58,17 +58,17 @@ fn main(input: InstanceInput) -> VertexOutput {
         }
     }
 
-    out.position = camera.view_matrix * vec4<f32>(position, input.z, 1.0);
+    out.position = vec4<f32>(position.x, position.y, 0.0, 1.0);
     out.font_color = input.color;
     return out;
 }
 
+[[group(1), binding(0)]] var font_texture: texture_2d<f32>;
 [[group(1), binding(1)]] var font_sampler: sampler;
-[[group(1), binding(2)]] var font_texture: texture_2d<f32>;
 
 [[stage(fragment)]]
 fn main(input: VertexOutput) -> [[location(0)]] vec4<f32> {
-    var alpha: f32 = textureSample(font_texture, font_sampler, input.texture_coords).a;
+    var alpha: f32 = textureSample(font_texture, font_sampler, input.texture_coords).r; // Single channel texture.
 
     if (alpha <= 0.0) {
         discard;

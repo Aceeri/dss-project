@@ -80,6 +80,8 @@ impl GlyphInstance {
     ) -> GlyphInstance {
         // Mostly just taken from the example of using gpu_glyph.
 
+        println!("tex: {:?}, pix: {:?}", tex_coords, pixel_coords);
+
         // handle overlapping bounds, modify uv_rect to preserve texture aspect
         if pixel_coords.max.x > bounds.max.x {
             let old_width = pixel_coords.width();
@@ -170,10 +172,6 @@ impl TextPass {
 
         let (width, height) = brush.texture_dimensions();
         let (glyph_texture, glyph_bind_group) = Self::new_glyph_cache(context, &glyph_bind_group_layout, width, height)?;
-
-        brush.queue(
-            Section::default().add_text(Text::new("A quick brown fox jumps over the the lazy dog")),
-        );
 
         let shader = context
             .device()
@@ -283,6 +281,7 @@ impl TextPass {
                 let offset = [rect.min[0], rect.min[1]];
                 let size = [rect.width(), rect.height()];
 
+                eprintln!("write {:?}, size {:?}", offset, size);
                 glyph_texture.write_texture(context.queue(), offset, size, texture_data);
             },
             GlyphInstance::from_vertex,
@@ -291,6 +290,7 @@ impl TextPass {
         match brush_action {
             Ok(BrushAction::Draw(instances)) => {
                 if instances.len() as u64 > self.supported_instances {
+                    eprintln!("expanding buffer");
                     context
                         .device()
                         .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -299,6 +299,7 @@ impl TextPass {
                             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         });
                 } else {
+                    eprintln!("writing to buffer");
                     context
                         .queue()
                         .write_buffer(
@@ -311,7 +312,7 @@ impl TextPass {
 
                 self.current_instances = instances.len();
             }
-            Ok(BrushAction::ReDraw) => {}
+            Ok(BrushAction::ReDraw) => {},
             Err(BrushError::TextureTooSmall { suggested, .. }) => {
                 let (width, height) = suggested;
                 println!("resizing glyph texture to {}x{}", width, height);
@@ -338,6 +339,12 @@ impl TextPass {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
+        self.brush.queue(
+            Section::default()
+                .add_text(Text::new("A quick brown fox jumps over the the lazy dog"))
+                //.with_bounds(())
+        );
+
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Sprite Pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -366,12 +373,13 @@ impl TextPass {
     }
 
     pub fn new_glyph_cache(context: &RenderContext, layout: &BindGroupLayout, width: u32, height: u32) -> Result<(Texture, BindGroup)> {
-        let texture = Texture::from_dimensions(
+        eprintln!("new glyph cache, {}x{}", width, height);
+        let texture = Texture::create_single_channel(
             context.device(),
             context.queue(),
             width,
             height,
-            "TextPass::glyph_texture",
+            Some("TextPass::glyph_texture"),
         )?;
 
         let bind_group = context.device().create_bind_group(&wgpu::BindGroupDescriptor{
