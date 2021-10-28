@@ -21,7 +21,7 @@ pub struct TextPass {
 
     pipeline: wgpu::RenderPipeline,
     pipeline_layout: wgpu::PipelineLayout,
-    brush: GlyphBrush<Vertex>,
+    brush: GlyphBrush<GlyphInstance>,
 
     glyph_image: image::DynamicImage,
 }
@@ -139,30 +139,12 @@ impl TextPass {
     pub fn update(&mut self, context: &RenderContext) {
         self.brush.process_queued(
             |rect, texture_data| {
-                glyph_image.
+                
             },
+            to_vertex,
         )
     }
 }
-
-pub const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.5, 0.5, 0.0],
-        tex_coords: [0.0, 0.0],
-    },
-    Vertex {
-        position: [-0.5, -0.5, 0.0],
-        tex_coords: [0.0, 1.0],
-    },
-    Vertex {
-        position: [0.5, -0.5, 0.0],
-        tex_coords: [1.0, 1.0],
-    },
-    Vertex {
-        position: [0.5, 0.5, 0.0],
-        tex_coords: [1.0, 0.0],
-    },
-];
 
 // Mostly just taken from the example of using gpu_glyph.
 pub fn to_vertex(

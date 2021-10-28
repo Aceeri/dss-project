@@ -6,6 +6,8 @@ pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
     pub sampler: wgpu::Sampler,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl Texture {
@@ -80,7 +82,38 @@ impl Texture {
             texture,
             view,
             sampler,
+            width: dimensions.0,
+            height: dimensions.1,
         })
+    }
+
+    pub fn write_texture(&self, queue: &wgpu::Queue, offset: [u32; 2], size: [u32; 2], rgba: &[u8]) {
+        let width = size[0];
+        let height = size[1];
+
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                aspect: wgpu::TextureAspect::All,
+                texture: &self.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: offset[0],
+                    y: offset[1],
+                    z: 0,
+                },
+            },
+            rgba,
+            wgpu::ImageDataLayout {
+                offset: 0,
+                bytes_per_row: std::num::NonZeroU32::new(4 * width),
+                rows_per_image: std::num::NonZeroU32::new(height),
+            },
+            wgpu::Extent3d {
+                width: width,
+                height: height,
+                depth_or_array_layers: 1,
+            },
+        );
     }
 
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth24Plus;
