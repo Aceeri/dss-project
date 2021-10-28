@@ -132,7 +132,7 @@ impl Renderer {
             });
         }
 
-        //self.sprite_pass.render(&self.context, &mut encoder, &view);
+        self.sprite_pass.render(&self.context, &mut encoder, &view);
         self.text_pass.render(&self.context, &mut encoder, &view);
 
         self.context

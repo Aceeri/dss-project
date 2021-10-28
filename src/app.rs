@@ -65,11 +65,11 @@ impl App {
             *control_flow = ControlFlow::Wait;
 
             if !done_polling {
-                //done_polling = menu.poll(&mut http_grabber).expect("polling failed");
+                done_polling = menu.poll(&mut http_grabber).expect("polling failed");
             }
 
             //menu.partial_set_render_details(&mut renderer);
-            //menu.set_render_details(&mut renderer);
+            menu.set_render_details(&mut renderer);
 
             match event {
                 Event::WindowEvent {
@@ -112,7 +112,18 @@ impl App {
                                     if let Some(monitor) =
                                         event_loop_window_target.primary_monitor()
                                     {
-                                        if let Some(video_mode) = monitor.video_modes().next() {
+                                        let mut modes = monitor.video_modes().collect::<Vec<_>>();
+                                        let wanted_size = winit::dpi::PhysicalSize::new(1920, 1080);
+
+                                        modes.sort_by(|a, b| a.cmp(&b));
+                                        let mut video_mode = modes.get(0).cloned();
+
+                                        modes = modes.into_iter().filter(|mode| mode.size() == wanted_size).collect::<Vec<_>>();
+                                        if let Some(wanted_mode) = modes.get(0) {
+                                            video_mode = Some(wanted_mode.clone())
+                                        }
+
+                                        if let Some(video_mode) = video_mode {
                                             window.set_fullscreen(Some(
                                                 winit::window::Fullscreen::Exclusive(video_mode),
                                             ));
