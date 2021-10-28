@@ -27,7 +27,7 @@ impl App {
     pub async fn new() -> Result<App> {
         let event_loop = EventLoop::new();
         let window_builder = WindowBuilder::new()
-            .with_min_inner_size(LogicalSize::new(800.0, 600.0))
+            .with_min_inner_size(LogicalSize::new(50.0, 50.0))
             .with_inner_size(PhysicalSize::new(800.0, 600.0))
             .with_title("DSS Project".to_string());
 

@@ -42,18 +42,22 @@ fn main(input: InstanceInput) -> VertexOutput {
     switch(i32(input.vertex_index)) {
         case 0: {
             position = vec2<f32>(left, top);
+            position = vec2<f32>(0.0, 0.0);
             out.texture_coords = input.texture_left_top;
         }
         case 1: {
             position = vec2<f32>(left, bottom);
+            position = vec2<f32>(0.0, -0.5);
             out.texture_coords = vec2<f32>(input.texture_left_top.x, input.texture_right_bottom.y);
         }
         case 2: {
             position = vec2<f32>(right, bottom);
+            position = vec2<f32>(0.5, -0.5);
             out.texture_coords = input.texture_right_bottom;
         }
         case 3: {
             position = vec2<f32>(right, top);
+            position = vec2<f32>(0.5, 0.0);
             out.texture_coords = vec2<f32>(input.texture_right_bottom.x, input.texture_left_top.y);
         }
     }
@@ -71,8 +75,9 @@ fn main(input: VertexOutput) -> [[location(0)]] vec4<f32> {
     var alpha: f32 = textureSample(font_texture, font_sampler, input.texture_coords).r; // Single channel texture.
 
     if (alpha <= 0.0) {
-        discard;
+        //discard;
     }
 
-    return input.font_color * vec4<f32>(1.0, 1.0, 1.0, alpha);
+    return vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    //return input.font_color * vec4<f32>(1.0, 1.0, 1.0, alpha);
 }
