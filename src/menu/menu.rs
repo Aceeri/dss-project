@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glam::{Vec2, Vec3};
+use glam::{ Vec3};
 use image::EncodableLayout;
 use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};

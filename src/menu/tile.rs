@@ -8,7 +8,7 @@ use crate::{
     grabber::HttpGrabber,
     home::ImageDetails,
     menu::prelude::*,
-    renderer::{Renderer, RenderContext, SpriteId, SpriteInstance, Texture},
+    renderer::{Renderer, SpriteId, SpriteInstance, Texture},
     util::EaseMethod,
 };
 

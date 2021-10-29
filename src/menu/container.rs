@@ -8,7 +8,7 @@ use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use crate::{
     grabber::HttpGrabber,
     home::{Item, RefSet},
-    renderer::{Renderer, RenderContext},
+    renderer::Renderer,
 };
 
 use super::{prelude::*, Tile, ASPECT_RATIO};
