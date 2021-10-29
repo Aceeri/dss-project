@@ -72,6 +72,7 @@ pub struct SpriteTexture {
 pub struct SpriteInstance {
     pub position: [f32; 3],
     pub size: [f32; 2],
+    pub alpha: f32,
 }
 
 impl SpriteInstance {
@@ -80,15 +81,20 @@ impl SpriteInstance {
             array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
-                wgpu::VertexAttribute {
+                wgpu::VertexAttribute { // position
                     offset: 0,
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                wgpu::VertexAttribute {
+                wgpu::VertexAttribute { // size
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute { // alpha
+                    offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32,
                 },
             ],
         }

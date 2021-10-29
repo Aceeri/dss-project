@@ -17,7 +17,7 @@ pub const TILE_SPACING: f32 = 0.25 * SCALE;
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 
 #[derive(Debug, Clone)]
-pub struct Collection {
+pub struct Container {
     position: Position,
     title_text: Text,
     ref_id: Option<Uuid>,
@@ -29,13 +29,13 @@ pub struct Collection {
     dirty_list: Vec<usize>,
 }
 
-impl Collection {
+impl Container {
     pub fn new(title: String, ref_id: Option<Uuid>) -> Self {
         let mut title_text = Text::new(title);
         title_text.set_position(&Vec3::new(0.0, 0.0, 0.0));
         title_text.set_font_size(36.0);
 
-        let mut new_collection = Self {
+        let mut new_container = Self {
             position: Position::new(),
             title_text: title_text,
             ref_id: ref_id,
@@ -47,8 +47,8 @@ impl Collection {
             dirty_list: Vec::new(),
         };
 
-        new_collection.set_child_positions();
-        new_collection
+        new_container.set_child_positions();
+        new_container
     }
 
     pub fn add_items(&mut self, items: &Vec<Item>) {
@@ -89,13 +89,17 @@ impl Collection {
     }
 }
 
-impl PositionHierarchy for Collection {
-    fn position(&self) -> &Position {
-        &self.position
+impl UpdateDelta for Container {
+    fn update_delta(&mut self, delta: f64) {
+        for tile in &mut self.tiles {
+            tile.update_delta(delta);
+        }
     }
-    fn position_mut(&mut self) -> &mut Position {
-        &mut self.position
-    }
+}
+
+impl PositionHierarchy for Container {
+    fn position(&self) -> &Position { &self.position }
+    fn position_mut(&mut self) -> &mut Position { &mut self.position }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
         self.title_text.set_parent_position(&absolute);
@@ -106,13 +110,13 @@ impl PositionHierarchy for Collection {
     }
 }
 
-impl Input for Collection {
+impl Input for Container {
     fn input(&mut self, _event: &WindowEvent) -> bool {
         false
     }
 }
 
-impl Poll for Collection {
+impl Poll for Container {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         let mut done = true;
         for tile in &mut self.tiles {
@@ -149,7 +153,7 @@ impl Poll for Collection {
     }
 }
 
-impl Draw for Collection {
+impl Draw for Container {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
         self.title_text.set_render_details(renderer);
 

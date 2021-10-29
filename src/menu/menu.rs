@@ -6,7 +6,7 @@ use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{grabber::HttpGrabber, home::Home, renderer::Renderer};
 
-use super::{prelude::*, Collection};
+use super::{prelude::*, Container};
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
 pub const COLLECTION_SPACING: f32 = 0.75 * SCALE;
@@ -15,13 +15,13 @@ pub const COLLECTION_SPACING: f32 = 0.75 * SCALE;
 pub struct Menu {
     position: InterpPosition,
 
-    // Vertical list of collections, each collection being a group of tiles.
-    collections: Vec<Collection>,
-    focused_collection: usize,
+    // Vertical list of containers, each container being a group of tiles.
+    containers: Vec<Container>,
+    focused_container: usize,
     focused_tile: usize,
 
-    // Indices of collections and tiles to iterate through slowly for rendering.
-    partial_collection: usize,
+    // Indices of containers and tiles to iterate through slowly for rendering.
+    partial_container: usize,
     partial_tile: usize,
 
     // List of tiles that need to be re-rendered immediately.
@@ -34,11 +34,11 @@ impl Menu {
     pub fn new() -> Menu {
         Menu {
             position: InterpPosition::new(),
-            collections: Vec::new(),
-            focused_collection: 0,
+            containers: Vec::new(),
+            focused_container: 0,
             focused_tile: 0,
 
-            partial_collection: 0,
+            partial_container: 0,
             partial_tile: 0,
             dirty_list: Vec::new(),
 
@@ -46,54 +46,60 @@ impl Menu {
         }
     }
 
-    pub fn update(&mut self, delta: f64) {
-        self.position.update(delta);
-        self.set_child_positions();
-    }
-
-    pub fn push_collection(&mut self, mut collection: Collection) {
-        collection.set_parent_position(&self.absolute_position());
-        collection.set_position(&Vec3::new(
+    pub fn push_container(&mut self, mut container: Container) {
+        container.set_parent_position(&self.absolute_position());
+        container.set_position(&Vec3::new(
             50.0,
-            90.0 + (1.0 * SCALE + COLLECTION_SPACING) * self.collections.len() as f32,
+            90.0 + (1.0 * SCALE + COLLECTION_SPACING) * self.containers.len() as f32,
             0.0,
         ));
-        self.collections.push(collection);
+        self.containers.push(container);
     }
 
     pub fn construct_home(&mut self, home: &Home) {
-        let mut new_collections = Vec::new();
+        let mut new_containers = Vec::new();
 
-        for container in &home.data.collection().containers {
-            let text_details = container.set.text.title.full.details();
-            let mut collection =
-                Collection::new(text_details.content.clone(), container.set.ref_id);
+        for container_ref in &home.data.collection().containers {
+            let text_details = container_ref.set.text.title.full.details();
+            let mut container =
+                Container::new(text_details.content.clone(), container_ref.set.ref_id);
 
-            if let Some(items) = &container.set.items {
-                collection.add_items(items);
+            if let Some(items) = &container_ref.set.items {
+                container.add_items(items);
             }
 
-            new_collections.push(collection);
+            new_containers.push(container);
         }
 
-        for new_collection in new_collections {
-            self.push_collection(new_collection);
+        for new_container in new_containers {
+            self.push_container(new_container);
         }
 
         self.home_loaded = true;
     }
 
-    pub fn focus_tile(&mut self, collection_index: usize, tile_index: usize) {
-        if let Some(collection) = self.collections.get_mut(self.focused_collection) {
-            collection.focus_tile(self.focused_tile, false);
+    pub fn focus_tile(&mut self, container_index: usize, tile_index: usize) {
+        if let Some(container) = self.containers.get_mut(self.focused_container) {
+            container.focus_tile(self.focused_tile, false);
         }
 
-        self.focused_collection = collection_index;
+        self.focused_container = container_index;
         self.focused_tile = tile_index;
 
-        if let Some(collection) = self.collections.get_mut(self.focused_collection) {
-            collection.focus_tile(self.focused_tile, true);
+        if let Some(container) = self.containers.get_mut(self.focused_container) {
+            container.focus_tile(self.focused_tile, true);
         }
+    }
+}
+
+impl UpdateDelta for Menu {
+    fn update_delta(&mut self, delta: f64) {
+        for container in &mut self.containers {
+            container.update_delta(delta);
+        }
+
+        self.position.update(delta);
+        self.set_child_positions();
     }
 }
 
@@ -106,8 +112,8 @@ impl PositionHierarchy for Menu {
     }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
-        for collection in &mut self.collections {
-            collection.set_parent_position(&absolute);
+        for container in &mut self.containers {
+            container.set_parent_position(&absolute);
         }
     }
     fn set_position(&mut self, local_position: &Vec3) {
@@ -117,7 +123,7 @@ impl PositionHierarchy for Menu {
 
 impl Input for Menu {
     fn input(&mut self, event: &WindowEvent) -> bool {
-        // Take up/down requests so we cycle through collections.
+        // Take up/down requests so we cycle through containers.
         match event {
             WindowEvent::KeyboardInput {
                 input:
@@ -128,9 +134,9 @@ impl Input for Menu {
                     },
                 ..
             } => {
-                match self.collections.get(self.focused_collection) {
-                    Some(collection) => {
-                        println!("{:?}", collection.absolute_position());
+                match self.containers.get(self.focused_container) {
+                    Some(container) => {
+                        println!("{:?}", container.absolute_position());
                     }
                     None => {}
                 }
@@ -165,43 +171,43 @@ impl Input for Menu {
                 ..
             } => {
                 let mut new_focused_tile = self.focused_tile;
-                let mut new_focused_collection = self.focused_collection;
+                let mut new_focused_container = self.focused_container;
 
                 match direction {
                     VirtualKeyCode::Up => {
-                        new_focused_collection = new_focused_collection.saturating_sub(1)
+                        new_focused_container = new_focused_container.saturating_sub(1)
                     }
                     VirtualKeyCode::Down => {
-                        new_focused_collection = new_focused_collection.saturating_add(1)
+                        new_focused_container = new_focused_container.saturating_add(1)
                     }
                     VirtualKeyCode::Left => new_focused_tile = new_focused_tile.saturating_sub(1),
                     VirtualKeyCode::Right => new_focused_tile = new_focused_tile.saturating_add(1),
                     _ => {}
                 };
 
-                if self.collections.len() > 0 {
-                    if new_focused_collection > self.collections.len() - 1 {
-                        new_focused_collection = self.collections.len() - 1;
+                if self.containers.len() > 0 {
+                    if new_focused_container > self.containers.len() - 1 {
+                        new_focused_container = self.containers.len() - 1;
                     }
 
-                    let focused_tiles = self.collections[new_focused_collection].tiles.len();
+                    let focused_tiles = self.containers[new_focused_container].tiles.len();
                     if focused_tiles > 0 && new_focused_tile > focused_tiles - 1 {
                         new_focused_tile = focused_tiles - 1;
                     }
                 } else {
-                    new_focused_collection = 0;
+                    new_focused_container = 0;
                     new_focused_tile = 0;
                 }
 
-                self.focus_tile(new_focused_collection, new_focused_tile);
+                self.focus_tile(new_focused_container, new_focused_tile);
                 return true;
             }
             _ => {}
         }
 
-        if let Some(collection) = self.collections.get_mut(self.focused_collection) {
-            if !collection.input(event) {
-                if let Some(tile) = collection.tiles.get_mut(self.focused_tile) {
+        if let Some(container) = self.containers.get_mut(self.focused_container) {
+            if !container.input(event) {
+                if let Some(tile) = container.tiles.get_mut(self.focused_tile) {
                     tile.input(event)
                 } else {
                     false
@@ -219,8 +225,8 @@ impl Poll for Menu {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         if self.home_loaded {
             let mut done = true;
-            for collection in &mut self.collections {
-                done = done && collection.poll(grabber)?;
+            for container in &mut self.containers {
+                done = done && container.poll(grabber)?;
             }
 
             Ok(done)
@@ -242,31 +248,31 @@ impl Poll for Menu {
 
 impl Draw for Menu {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
-        for collection in &mut self.collections {
-            collection.set_render_details(renderer);
+        for container in &mut self.containers {
+            container.set_render_details(renderer);
         }
     }
 
     fn partial_set_render_details(&mut self, renderer: &mut Renderer) {
-        if let Some(collection) = self.collections.get_mut(self.partial_collection) {
-            collection.partial_set_render_details(renderer);
+        if let Some(container) = self.containers.get_mut(self.partial_container) {
+            container.partial_set_render_details(renderer);
 
-            if let Some(tile) = collection.tiles.get_mut(self.partial_tile) {
+            if let Some(tile) = container.tiles.get_mut(self.partial_tile) {
                 tile.set_render_details(renderer);
                 self.partial_tile += 1;
             }
 
-            if self.partial_tile >= collection.tiles.len() {
+            if self.partial_tile >= container.tiles.len() {
                 self.partial_tile = 0;
-                self.partial_collection += 1;
+                self.partial_container += 1;
 
-                if self.partial_collection >= self.collections.len() {
-                    self.partial_collection = 0;
+                if self.partial_container >= self.containers.len() {
+                    self.partial_container = 0;
                 }
             }
         } else {
             self.partial_tile = 0;
-            self.partial_collection = 0;
+            self.partial_container = 0;
         }
     }
 }
@@ -274,7 +280,7 @@ impl Draw for Menu {
 #[cfg(test)]
 mod test {
     use crate::home::ImageDetails;
-    use crate::menu::{Collection, Menu, PositionHierarchy, Tile};
+    use crate::menu::{Container, Menu, PositionHierarchy, Tile};
     use glam::Vec3;
 
     #[test]
@@ -287,45 +293,45 @@ mod test {
 
         let mut menu = Menu::new();
 
-        let mut collection = Collection::new("dummy".to_owned(), None);
+        let mut container = Container::new("dummy".to_owned(), None);
         let tile = Tile::new(dummy_details.clone());
-        collection.push_tile(tile);
+        container.push_tile(tile);
 
-        menu.push_collection(collection);
+        menu.push_container(container);
 
         assert_eq!(menu.absolute_position(), Vec3::ZERO);
-        assert_eq!(menu.collections[0].absolute_position(), Vec3::ZERO);
-        assert_eq!(menu.collections[0].tiles[0].absolute_position(), Vec3::ZERO);
+        assert_eq!(menu.containers[0].absolute_position(), Vec3::ZERO);
+        assert_eq!(menu.containers[0].tiles[0].absolute_position(), Vec3::ZERO);
 
         let vec_10_10 = Vec3::new(10.0, 10.0, 10.0);
         menu.set_position(&vec_10_10);
 
         assert_eq!(menu.absolute_position(), vec_10_10);
-        assert_eq!(menu.collections[0].absolute_position(), vec_10_10);
-        assert_eq!(menu.collections[0].tiles[0].absolute_position(), vec_10_10);
+        assert_eq!(menu.containers[0].absolute_position(), vec_10_10);
+        assert_eq!(menu.containers[0].tiles[0].absolute_position(), vec_10_10);
 
-        menu.collections[0].tiles[0].set_position(&vec_10_10);
+        menu.containers[0].tiles[0].set_position(&vec_10_10);
         assert_eq!(
-            menu.collections[0].tiles[0].absolute_position(),
+            menu.containers[0].tiles[0].absolute_position(),
             Vec3::new(20.0, 20.0, 20.0)
         );
 
-        menu.collections[0].set_position(&vec_10_10);
+        menu.containers[0].set_position(&vec_10_10);
         assert_eq!(
-            menu.collections[0].absolute_position(),
+            menu.containers[0].absolute_position(),
             Vec3::new(20.0, 20.0, 20.0)
         );
         assert_eq!(
-            menu.collections[0].tiles[0].absolute_position(),
+            menu.containers[0].tiles[0].absolute_position(),
             Vec3::new(30.0, 30.0, 30.0)
         );
 
-        let mut new_collection = Collection::new("dummy".to_owned(), None);
+        let mut new_container = Container::new("dummy".to_owned(), None);
         let new_tile = Tile::new(dummy_details);
-        new_collection.push_tile(new_tile);
-        menu.push_collection(new_collection);
+        new_container.push_tile(new_tile);
+        menu.push_container(new_container);
         println!("{:?}", menu.absolute_position());
-        println!("{:?}", menu.collections[1].absolute_position());
-        println!("{:?}", menu.collections[1].tiles[0].absolute_position());
+        println!("{:?}", menu.containers[1].absolute_position());
+        println!("{:?}", menu.containers[1].tiles[0].absolute_position());
     }
 }

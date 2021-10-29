@@ -43,13 +43,6 @@ impl Tile {
         }
     }
 
-    pub fn update(&mut self, delta: f64) {
-        if self.counter < self.duration {
-            self.counter += delta as f64;
-            self.alpha = EaseMethod::Linear.ease(0.0, 1.0, (self.counter / self.duration) as f32);
-        }
-    }
-
     pub fn position(&self) -> &Position {
         &self.position
     }
@@ -82,6 +75,16 @@ impl Tile {
         SpriteInstance {
             size: size.into(),
             position: position.into(),
+            alpha: self.alpha,
+        }
+    }
+}
+
+impl UpdateDelta for Tile {
+    fn update_delta(&mut self, delta: f64) {
+        if self.counter < self.duration {
+            self.counter += delta as f64;
+            self.alpha = EaseMethod::Linear.ease(0.0, 1.0, (self.counter / self.duration) as f32);
         }
     }
 }
@@ -93,6 +96,8 @@ impl Poll for Tile {
             None => {
                 if let PollTask::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
                     self.texture_bytes = Some(bytes?.clone());
+                    self.counter = 0.0;
+                    self.duration = 1.0;
                     Ok(true)
                 } else {
                     Ok(false)

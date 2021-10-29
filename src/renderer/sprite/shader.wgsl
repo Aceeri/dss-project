@@ -16,11 +16,13 @@ struct VertexInput {
 struct InstanceInput {
     [[location(2)]] inst_position: vec3<f32>;
     [[location(3)]] size: vec2<f32>;
+    [[location(4)]] alpha: f32;
 };
 
 struct VertexOutput {
     [[builtin(position)]] clip_position: vec4<f32>;
     [[location(0)]] tex_coords: vec2<f32>;
+    [[location(1)]] alpha: f32;
 };
 
 [[stage(vertex)]]
@@ -32,19 +34,19 @@ fn main(
     out.tex_coords = model.tex_coords;
     out.clip_position = camera.view_matrix
         * vec4<f32>(instance.inst_position.x + (model.vert_position.x * instance.size.x), -instance.inst_position.y + (model.vert_position.y * instance.size.y), instance.inst_position.z, 1.0);
+    out.alpha = instance.alpha;
     return out;
 }
 
 [[group(0), binding(0)]]
-var t_diffuse: texture_2d<f32>;
+var sprite_texture: texture_2d<f32>;
 [[group(0), binding(1)]]
-var s_diffuse: sampler;
+var sprite_sampler: sampler;
 
 [[stage(fragment)]]
-fn main(
-    in: VertexOutput
-) -> [[location(0)]] vec4<f32> {
-    var sampled: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+fn main(input: VertexOutput) -> [[location(0)]] vec4<f32> {
+    var sampled: vec4<f32> = textureSample(sprite_texture, sprite_sampler, input.tex_coords);
+    sampled = sampled * vec4<f32>(1.0, 1.0, 1.0, input.alpha);
 
     if (sampled.a <= 0.0) {
         discard;

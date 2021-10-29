@@ -1,14 +1,14 @@
 pub const ASPECT_RATIO: f32 = 1.78;
 pub const SCALE: f32 = 100.0;
 
-pub mod collection;
+pub mod container;
 pub mod menu;
 pub mod position;
 pub mod prelude;
 pub mod text;
 pub mod tile;
 
-pub use collection::Collection;
+pub use container::Container;
 pub use menu::Menu;
 pub use position::{InterpPosition, Position, PositionHierarchy};
 pub use text::Text;
@@ -41,4 +41,8 @@ pub trait Draw {
     fn partial_set_render_details(&mut self, renderer: &mut crate::renderer::Renderer) {
         self.set_render_details(renderer);
     }
+}
+
+pub trait UpdateDelta {
+    fn update_delta(&mut self, delta: f64);
 }

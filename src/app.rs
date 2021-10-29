@@ -11,7 +11,7 @@ pub use crate::{
     grabber::HttpGrabber,
     home::Home,
     image::EncodableLayout,
-    menu::{Collection, Draw, Input, Menu, Poll, PositionHierarchy, Tile},
+    menu::{Container, UpdateDelta, Draw, Input, Menu, Poll, PositionHierarchy, Tile},
     renderer::Renderer,
 };
 
@@ -152,7 +152,7 @@ impl App {
                     }
                 }
                 Event::RedrawRequested(_) => {
-                    menu.update(0.01);
+                    menu.update_delta(0.01);
                     menu.set_render_details(&mut renderer);
 
                     if let Err(err) = renderer.update() {
