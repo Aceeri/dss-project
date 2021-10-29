@@ -1,6 +1,5 @@
 use glyph_brush::{
-    ab_glyph::FontArc, BrushAction, BrushError, Extra, GlyphBrush, GlyphBrushBuilder, GlyphVertex,
-    Section, Text,
+    ab_glyph::FontArc, BrushAction, BrushError, GlyphBrush, GlyphBrushBuilder, GlyphVertex, Section,
 };
 
 use anyhow::Result;
@@ -13,7 +12,10 @@ use wgpu::{
     util::DeviceExt,
 };
 
-use crate::renderer::{RenderContext, Texture, Vertex};
+use crate::{
+    renderer::{RenderContext, Texture},
+    util::ReuseVec,
+};
 
 use std::mem;
 
@@ -29,7 +31,7 @@ pub struct GlyphInstance {
 }
 
 impl GlyphInstance {
-    pub const INITIAL_AMOUNT: u64 = 100;
+    pub const INITIAL_AMOUNT: u64 = 50_000;
 
     pub fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
         wgpu::VertexBufferLayout {
@@ -80,8 +82,6 @@ impl GlyphInstance {
     ) -> GlyphInstance {
         // Mostly just taken from the example of using gpu_glyph.
 
-        println!("tex: {:?}, pix: {:?}", tex_coords, pixel_coords);
-
         // handle overlapping bounds, modify uv_rect to preserve texture aspect
         if pixel_coords.max.x > bounds.max.x {
             let old_width = pixel_coords.width();
@@ -122,6 +122,28 @@ impl GlyphInstance {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TextId(usize);
+
+#[derive(Debug, Clone)]
+pub struct Text {
+    pub text: String,
+    pub font_size: f32,
+    pub color: [f32; 4],
+    pub position: [f32; 2],
+}
+
+impl Default for Text {
+    fn default() -> Self {
+        Self {
+            text: "".to_owned(),
+            font_size: 24.0,
+            color: [1.0, 1.0, 1.0, 1.0],
+            position: [0.0, 0.0],
+        }
+    }
+}
+
 pub struct TextPass {
     pipeline: wgpu::RenderPipeline,
     brush: GlyphBrush<GlyphInstance>,
@@ -132,12 +154,17 @@ pub struct TextPass {
     glyph_bind_group_layout: BindGroupLayout,
     glyph_texture: Texture,
     glyph_bind_group: wgpu::BindGroup,
+
+    text: ReuseVec<Text>,
 }
 
 impl TextPass {
     pub fn new(context: &RenderContext) -> Result<Self> {
         let font = FontArc::try_from_slice(include_bytes!("./fonts/Urbanist/Urbanist-Light.otf"))?;
-        let brush = GlyphBrushBuilder::using_font(font).build();
+        let brush = GlyphBrushBuilder::using_font(font)
+            .draw_cache_position_tolerance(1.0)
+            .multithread(true)
+            .build();
 
         let glyph_bind_group_layout =
             context
@@ -260,7 +287,22 @@ impl TextPass {
             instances,
             supported_instances,
             current_instances: 0,
+            text: ReuseVec::new(),
         })
+    }
+
+    pub fn add_text(&mut self, text: Text) -> TextId {
+        TextId(self.text.push(text))
+    }
+
+    pub fn update_text(&mut self, text_id: &TextId, new_text: Text) {
+        if let Some(text) = self.text.get_mut(text_id.0) {
+            *text = new_text;
+        }
+    }
+
+    pub fn remove_text(&mut self, id: TextId) {
+        self.text.mark_reclaim(id.0);
     }
 
     pub fn update(&mut self, context: &RenderContext) -> Result<()> {
@@ -296,8 +338,9 @@ impl TextPass {
                             contents: bytemuck::cast_slice(instances.as_slice()),
                             usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                         });
+
+                    self.supported_instances = instances.len() as u64;
                 } else {
-                    eprintln!("writing to buffer");
                     context
                         .queue()
                         .write_buffer(
@@ -337,16 +380,9 @@ impl TextPass {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
-        let font_size = 72.0;
-        let scale = (font_size * context.scale_factor() as f32).round();
-        self.brush.queue(
-            Section::default()
-                .add_text(Text::new("a quick brown fox jumps over the lazy dog").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(scale))
-                .add_text(Text::new("A QUICK BROWN FOX JUMPS OVER THE LAZY DOG").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(scale))
-        );
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Sprite Pass"),
+            label: Some("TextPass::render_pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None,
@@ -368,6 +404,24 @@ impl TextPass {
         render_pass.set_pipeline(&self.pipeline);
         render_pass.set_bind_group(0, &context.camera_bind_group(), &[]);
         render_pass.set_bind_group(1, &self.glyph_bind_group, &[]);
+
+        for text in self.text.iter() {
+            let scale = (text.font_size * context.scale_factor() as f32).round();
+
+            self.brush.queue(
+                Section {
+                    screen_position: (text.position[0], text.position[1]),
+                    //bounds: (context.camera().right.abs(), context.camera().bottom.abs()),
+                    text: vec![
+                        glyph_brush::Text::new(&text.text)
+                            .with_color(text.color)
+                            .with_scale(scale)
+                    ],
+                    ..Default::default()
+                }
+            );
+        }
+
         render_pass.set_vertex_buffer(0, self.instances.slice(..));
         render_pass.draw(0..4, 0..self.current_instances as u32);
     }
@@ -376,7 +430,6 @@ impl TextPass {
         eprintln!("new glyph cache, {}x{}", width, height);
         let texture = Texture::create_single_channel(
             context.device(),
-            context.queue(),
             width,
             height,
             Some("TextPass::glyph_texture"),

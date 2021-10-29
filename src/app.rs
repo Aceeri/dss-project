@@ -11,7 +11,7 @@ pub use crate::{
     grabber::HttpGrabber,
     home::Home,
     image::EncodableLayout,
-    menu::{Collection, EventGrab, Menu, PositionHierarchy, Tile},
+    menu::{Collection, Poll, Draw, Input, Menu, PositionHierarchy, Tile},
     renderer::Renderer,
 };
 
@@ -37,7 +37,7 @@ impl App {
         let renderer = Renderer::new(&window).await?;
 
         let mut menu = Menu::new();
-        menu.set_position(&Vec3::new(1.2, 1.0, 0.0));
+        menu.set_position(&Vec3::new(50.0, 50.0, 0.0));
 
         let http_grabber = HttpGrabber::new();
 
@@ -51,8 +51,6 @@ impl App {
     }
 
     pub fn run(self) -> Result<()> {
-        use crate::menu::{Pollable, SetRenderDetails};
-
         let App {
             event_loop,
             window,
@@ -67,7 +65,13 @@ impl App {
             *control_flow = ControlFlow::Poll;
 
             if !done_polling {
-                done_polling = menu.poll(&mut http_grabber).expect("polling failed");
+                done_polling = match menu.poll(&mut http_grabber) {
+                    Ok(done) => done,
+                    Err(err) => {
+                        eprintln!("polling failed: {:?}", err);
+                        false
+                    }
+                }
             }
 
             match event {

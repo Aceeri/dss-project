@@ -59,7 +59,6 @@ fn main(input: InstanceInput) -> VertexOutput {
         }
     }
 
-    //out.position = camera.view_matrix * vec4<f32>(position.x / 200.0 / 5.0, -position.y / 200.0 / 5.0, input.z, 1.0);
     out.position = camera.view_matrix * vec4<f32>(position.x, -position.y, input.z, 1.0);
     out.font_color = input.color;
     return out;

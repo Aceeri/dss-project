@@ -1,7 +1,8 @@
+
 use anyhow::Result;
 use glam::Vec2;
 use image::EncodableLayout;
-use std::task::Poll;
+use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
@@ -9,6 +10,7 @@ use crate::{
     home::ImageDetails,
     menu::prelude::*,
     renderer::{Renderer, SpriteId, SpriteInstance, Texture},
+    util::EaseMethod,
 };
 
 #[derive(Debug, Clone)]
@@ -20,6 +22,10 @@ pub struct Tile {
     sprite: Option<SpriteId>,
     texture_bytes: Option<bytes::Bytes>,
     details: ImageDetails,
+
+    counter: f64,
+    duration: f64,
+    alpha: f32,
 }
 
 impl Tile {
@@ -32,6 +38,16 @@ impl Tile {
             sprite: None,
             texture_bytes: None,
             details: details,
+            counter: 0.0,
+            duration: 0.0,
+            alpha: 0.0,
+        }
+    }
+
+    pub fn update(&mut self, delta: f64) {
+        if self.counter < self.duration {
+            self.counter += delta as f64;
+            self.alpha = EaseMethod::Linear.ease(0.0, 1.0, (self.counter / self.duration) as f32);
         }
     }
 
@@ -71,12 +87,12 @@ impl Tile {
     }
 }
 
-impl Pollable for Tile {
+impl Poll for Tile {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.texture_bytes {
             Some(_image_bytes) => Ok(true),
             None => {
-                if let Poll::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
+                if let PollTask::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
                     self.texture_bytes = Some(bytes?.clone());
                     Ok(true)
                 } else {
@@ -97,7 +113,7 @@ impl PositionHierarchy for Tile {
     fn set_child_positions(&mut self) {}
 }
 
-impl EventGrab for Tile {
+impl Input for Tile {
     fn input(&mut self, event: &WindowEvent) -> bool {
         match event {
             WindowEvent::KeyboardInput {
@@ -117,7 +133,7 @@ impl EventGrab for Tile {
     }
 }
 
-impl SetRenderDetails for Tile {
+impl Draw for Tile {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
         match (&self.sprite, &self.texture_bytes) {
             (Some(sprite), _) => {

@@ -10,5 +10,5 @@ pub use sprite::{
     Sprite, SpriteId, SpriteInstance, SpriteInstanceId, SpriteMesh, SpritePass, SpriteTexture,
     SpriteTextureId,
 };
-pub use text::TextPass;
+pub use text::{TextPass, Text, TextId};
 pub use texture::Texture;

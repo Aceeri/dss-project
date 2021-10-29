@@ -1,7 +1,7 @@
 use anyhow::Result;
 use glam::{Vec2, Vec3};
 use image::EncodableLayout;
-use std::task::Poll;
+use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
@@ -126,9 +126,12 @@ impl PositionHierarchy for Menu {
             collection.set_parent_position(&absolute);
         }
     }
+    fn set_position(&mut self, local_position: &Vec3) {
+        self.position.set_position(local_position);
+    }
 }
 
-impl EventGrab for Menu {
+impl Input for Menu {
     fn input(&mut self, event: &WindowEvent) -> bool {
         // Take up/down requests so we cycle through collections.
         match event {
@@ -228,7 +231,7 @@ impl EventGrab for Menu {
     }
 }
 
-impl Pollable for Menu {
+impl Poll for Menu {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.home {
             Some(_) => {
@@ -241,8 +244,8 @@ impl Pollable for Menu {
             }
             None => {
                 match grabber.poll_request(HOME_URL.to_owned())? {
-                    Poll::Pending => Ok(false),
-                    Poll::Ready(home) => {
+                    PollTask::Pending => Ok(false),
+                    PollTask::Ready(home) => {
                         println!("got homepage, rendering page now");
                         // Construct initial homepage.
                         let home = home?;
@@ -256,7 +259,7 @@ impl Pollable for Menu {
     }
 }
 
-impl SetRenderDetails for Menu {
+impl Draw for Menu {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
         for collection in &mut self.collections {
             collection.set_render_details(renderer);

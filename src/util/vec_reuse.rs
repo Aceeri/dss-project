@@ -62,9 +62,16 @@ pub struct ReuseVecIter<'a, T> {
 impl<'a, T> Iterator for ReuseVecIter<'a, T> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        let current = self.reuse_vec.current.get(self.index);
-        self.index += 1;
-        current
+        loop {
+            if self.reuse_vec.reclaim.contains(&self.index) {
+                println!("looping");
+                self.index += 1;
+            } else {
+                let current = self.reuse_vec.current.get(self.index);
+                self.index += 1;
+                return current;
+            }
+        }
     }
 }
 

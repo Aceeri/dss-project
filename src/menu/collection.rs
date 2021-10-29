@@ -18,7 +18,7 @@ pub const TILE_SPACING: f32 = 0.2 * SCALE;
 #[derive(Debug, Clone)]
 pub struct Collection {
     position: Position,
-    title: String,
+    title_text: Text,
     pub tiles: Vec<Tile>,
     focused: bool,
 
@@ -27,14 +27,20 @@ pub struct Collection {
 
 impl Collection {
     pub fn new(title: String) -> Self {
-        Self {
+        let mut title_text = Text::new(title);
+        title_text.set_position(&Vec3::new(10.0, 0.0, 0.0));
+
+        let mut new_collection = Self {
             position: Position::new(),
-            title: title,
+            title_text: title_text,
             tiles: Vec::new(),
             focused: false,
 
             dirty_list: Vec::new(),
-        }
+        };
+
+        new_collection.set_child_positions();
+        new_collection
     }
 
     pub fn push_tile(&mut self, mut tile: Tile) {
@@ -64,19 +70,21 @@ impl PositionHierarchy for Collection {
     }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
+        self.title_text.set_parent_position(&absolute);
+
         for tile in &mut self.tiles {
             tile.set_parent_position(&absolute);
         }
     }
 }
 
-impl EventGrab for Collection {
+impl Input for Collection {
     fn input(&mut self, _event: &WindowEvent) -> bool {
         false
     }
 }
 
-impl Pollable for Collection {
+impl Poll for Collection {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         let mut done = true;
         for tile in &mut self.tiles {
@@ -87,9 +95,9 @@ impl Pollable for Collection {
     }
 }
 
-impl SetRenderDetails for Collection {
+impl Draw for Collection {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
-        // TODO: add text rendering to this.
+        self.title_text.set_render_details(renderer);
 
         for tile in &mut self.tiles {
             tile.set_render_details(renderer);

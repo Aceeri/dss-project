@@ -1,4 +1,3 @@
-use wgpu::util::DeviceExt;
 
 use anyhow::Result;
 
@@ -32,9 +31,12 @@ impl IdIndex for SpriteInstanceId {
 #[derive(Copy, Clone, Debug)]
 pub struct SpriteId(usize);
 
-impl SpriteId {
+impl IdIndex for SpriteId {
     fn id(&self) -> usize {
         self.0
+    }
+    fn from_index(index: usize) -> Self {
+        Self(index)
     }
 }
 
@@ -63,18 +65,9 @@ impl SpritePass {
         let shader = context
             .device()
             .create_shader_module(&wgpu::ShaderModuleDescriptor {
-                label: Some("Sprite Shader"),
+                label: Some("SpritePass::shader.wgsl"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
             });
-
-        let sprite_instance_buffer =
-            context
-                .device()
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Sprite Instance Buffer"),
-                    contents: &[],
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
 
         let sprite_mesh = SpriteMesh::new(context.device())?;
 
@@ -103,14 +96,14 @@ impl SpritePass {
                             count: None,
                         },
                     ],
-                    label: Some("sprite_texture_bind_group_layout"),
+                    label: Some("SpritePass::texture_bind_group_layout"),
                 });
 
         let pipeline_layout =
             context
                 .device()
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Sprite Pipeline Layout"),
+                    label: Some("SpritePass:pipeline_layout"),
                     bind_group_layouts: &[
                         &texture_bind_group_layout,
                         &context.camera_bind_group_layout(),
@@ -155,7 +148,7 @@ impl SpritePass {
         let pipeline = context
             .device()
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Sprite Render Pipeline"),
+                label: Some("SpritePass::pipeline"),
                 layout: Some(&pipeline_layout),
                 vertex: vertex_state,
                 fragment: Some(fragment_state),
@@ -170,7 +163,7 @@ impl SpritePass {
 
         let sprite_instances = ManagedBuffer::new(
             context.device(),
-            Some("sprite instance buffer"),
+            Some("SpritePass::sprite_instances"),
             wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         );
 
@@ -197,7 +190,7 @@ impl SpritePass {
             .update_buffer(context.device(), context.queue());
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Sprite Pass"),
+            label: Some("SpritePass::render_pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None,

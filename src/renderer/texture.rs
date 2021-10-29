@@ -178,7 +178,6 @@ impl Texture {
     // Creates a single channel image. 
     pub fn create_single_channel(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
         width: u32,
         height: u32,
         label: Option<&str>,
@@ -198,27 +197,6 @@ impl Texture {
             format: wgpu::TextureFormat::R8Unorm,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         });
-
-        /*
-        let data = vec![0; (width * (height)) as usize];
-
-        eprintln!("writing data");
-        queue.write_texture(
-            wgpu::ImageCopyTexture {
-                aspect: wgpu::TextureAspect::All,
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            data.as_slice(),
-            wgpu::ImageDataLayout {
-                offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(width),
-                rows_per_image: std::num::NonZeroU32::new(height - 1),
-            },
-            size,
-        );
-        */
 
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
