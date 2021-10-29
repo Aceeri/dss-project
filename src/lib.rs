@@ -20,6 +20,10 @@ pub mod menu;
 pub mod renderer;
 pub mod util;
 
+#[cfg(not(target_os = "windows"))]
+pub fn hide_console_window() { }
+
+#[cfg(target_os = "windows")]
 pub fn hide_console_window() {
     use std::ptr;
     use winapi::um::wincon::GetConsoleWindow;
