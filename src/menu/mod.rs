@@ -14,7 +14,9 @@ pub use position::{InterpPosition, Position, PositionHierarchy};
 pub use text::Text;
 pub use tile::Tile;
 
-use crate::grabber::HttpGrabber;
+use crate::{
+    grabber::HttpGrabber,
+};
 use anyhow::Result;
 use winit::event::WindowEvent;
 

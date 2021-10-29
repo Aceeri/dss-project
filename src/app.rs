@@ -7,6 +7,8 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+use std::time::Instant;
+
 pub use crate::{
     grabber::HttpGrabber,
     home::Home,
@@ -61,8 +63,19 @@ impl App {
 
         let mut done_polling = false;
 
+        let mut previous_instant = Instant::now();
+        let mut delta_accumulate = 0.0;
+
         event_loop.run(move |event, event_loop_window_target, control_flow| {
             *control_flow = ControlFlow::Poll;
+
+            let now = Instant::now();
+            let delta: f64 = match now.checked_duration_since(previous_instant) {
+                Some(duration) => duration.as_nanos() as f64 / 1_000_000_000.0f64,
+                None => 0.0f64,
+            };
+            delta_accumulate += delta;
+            previous_instant = now;
 
             if !done_polling {
                 done_polling = match menu.poll(&mut http_grabber) {
@@ -152,7 +165,11 @@ impl App {
                     }
                 }
                 Event::RedrawRequested(_) => {
-                    menu.update_delta(0.01);
+                    if delta_accumulate > 1.0 / 144.0 { // Update at a fixed rate.
+                        menu.update_delta(delta_accumulate);
+                        delta_accumulate = 0.0;
+                    }
+
                     menu.set_render_details(&mut renderer);
 
                     if let Err(err) = renderer.update() {

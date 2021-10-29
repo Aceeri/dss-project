@@ -3,12 +3,12 @@ use glam::{Vec2, Vec3};
 use image::EncodableLayout;
 use std::task::Poll as PollTask;
 use uuid::Uuid;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{
     grabber::HttpGrabber,
     home::{Item, RefSet},
-    renderer::Renderer,
+    renderer::{Renderer, RenderContext},
 };
 
 use super::{prelude::*, Tile, ASPECT_RATIO};
@@ -18,12 +18,13 @@ pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 
 #[derive(Debug, Clone)]
 pub struct Container {
-    position: Position,
+    position: InterpPosition,
     title_text: Text,
     ref_id: Option<Uuid>,
     refset_loaded: bool,
 
     pub tiles: Vec<Tile>,
+    focused_tile: usize,
     focused: bool,
 
     dirty_list: Vec<usize>,
@@ -32,16 +33,17 @@ pub struct Container {
 impl Container {
     pub fn new(title: String, ref_id: Option<Uuid>) -> Self {
         let mut title_text = Text::new(title);
-        title_text.set_position(&Vec3::new(0.0, 0.0, 0.0));
+        title_text.set_position(&Vec3::new(50.0, 20.0, 0.0));
         title_text.set_font_size(36.0);
 
         let mut new_container = Self {
-            position: Position::new(),
+            position: InterpPosition::new(),
             title_text: title_text,
             ref_id: ref_id,
             refset_loaded: false,
 
             tiles: Vec::new(),
+            focused_tile: 0,
             focused: false,
 
             dirty_list: Vec::new(),
@@ -96,10 +98,21 @@ impl Container {
         self.tiles.push(tile);
     }
 
-    pub fn focus_tile(&mut self, tile_index: usize, focused: bool) {
-        if let Some(tile) = self.tiles.get_mut(tile_index) {
+    pub fn focus(&mut self, focused: bool) {
+        if let Some(tile) = self.tiles.get_mut(self.focused_tile) {
             tile.set_focus(focused);
-            self.dirty_list.push(tile_index);
+        }
+    }
+
+    pub fn focus_tile(&mut self, tile_index: usize) {
+        if let Some(tile) = self.tiles.get_mut(self.focused_tile) {
+            tile.set_focus(false);
+        }
+
+        self.focused_tile = tile_index;
+
+        if let Some(tile) = self.tiles.get_mut(self.focused_tile) {
+            tile.set_focus(true);
         }
     }
 }
@@ -109,24 +122,79 @@ impl UpdateDelta for Container {
         for tile in &mut self.tiles {
             tile.update_delta(delta);
         }
+
+        self.position.update(delta);
+        self.set_child_positions();
     }
 }
 
 impl PositionHierarchy for Container {
-    fn position(&self) -> &Position { &self.position }
-    fn position_mut(&mut self) -> &mut Position { &mut self.position }
+    fn position(&self) -> &Position { self.position.position() }
+    fn position_mut(&mut self) -> &mut Position { self.position.position_mut() }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
-        self.title_text.set_parent_position(&absolute);
+        // Don't follow on the x axis.
+        self.title_text.set_parent_position(&Vec3::new(0.0, absolute.y, absolute.z));
 
         for tile in &mut self.tiles {
             tile.set_parent_position(&absolute);
         }
     }
+    fn set_position(&mut self, local_position: &Vec3) {
+        self.position.set_position(local_position);
+        self.set_child_positions();
+    }
 }
 
 impl Input for Container {
-    fn input(&mut self, _event: &WindowEvent) -> bool {
+    fn input(&mut self, event: &WindowEvent) -> bool {
+        // Take left/right requests so we cycle through tiles
+        match event {
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode:
+                            Some(
+                                direction @ VirtualKeyCode::Left
+                                | direction @ VirtualKeyCode::Right
+                            ),
+                        ..
+                    },
+                ..
+            } => {
+                let mut new_focused_tile = self.focused_tile;
+
+                match direction {
+                    VirtualKeyCode::Left => {
+                        new_focused_tile = new_focused_tile.saturating_sub(1)
+                    }
+                    VirtualKeyCode::Right => {
+                        new_focused_tile = new_focused_tile.saturating_add(1)
+                    }
+                    _ => {}
+                };
+
+                if self.tiles.len() > 0 {
+                    if new_focused_tile > self.tiles.len() - 1 {
+                        new_focused_tile = self.tiles.len() - 1;
+                    }
+                } else {
+                    new_focused_tile = 0;
+                }
+
+                self.focus_tile(new_focused_tile);
+                if let Some(_) = self.tiles.get(new_focused_tile) {
+                    let mut position = self.position.wanted_position();
+                    position.x = 0.5 * SCALE + (ASPECT_RATIO * SCALE + TILE_SPACING) * new_focused_tile as f32 * -1.0;
+                    self.position.interp_position(position, 0.75);
+                }
+
+                return true;
+            }
+            _ => {}
+        }
+
         false
     }
 }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use image::EncodableLayout;
 use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -18,7 +18,6 @@ pub struct Menu {
     // Vertical list of containers, each container being a group of tiles.
     containers: Vec<Container>,
     focused_container: usize,
-    focused_tile: usize,
 
     // Indices of containers and tiles to iterate through slowly for rendering.
     partial_container: usize,
@@ -36,7 +35,6 @@ impl Menu {
             position: InterpPosition::new(),
             containers: Vec::new(),
             focused_container: 0,
-            focused_tile: 0,
 
             partial_container: 0,
             partial_tile: 0,
@@ -50,7 +48,7 @@ impl Menu {
         container.set_parent_position(&self.absolute_position());
         container.set_position(&Vec3::new(
             0.5 * SCALE,
-            SCALE + (1.0 * SCALE + COLLECTION_SPACING) * self.containers.len() as f32,
+            (SCALE + COLLECTION_SPACING) * self.containers.len() as f32,
             0.0,
         ));
         self.containers.push(container);
@@ -78,16 +76,15 @@ impl Menu {
         self.home_loaded = true;
     }
 
-    pub fn focus_tile(&mut self, container_index: usize, tile_index: usize) {
+    pub fn focus_container(&mut self, container_index: usize) {
         if let Some(container) = self.containers.get_mut(self.focused_container) {
-            container.focus_tile(self.focused_tile, false);
+            container.focus(false);
         }
 
         self.focused_container = container_index;
-        self.focused_tile = tile_index;
 
         if let Some(container) = self.containers.get_mut(self.focused_container) {
-            container.focus_tile(self.focused_tile, true);
+            container.focus(true);
         }
     }
 }
@@ -118,6 +115,7 @@ impl PositionHierarchy for Menu {
     }
     fn set_position(&mut self, local_position: &Vec3) {
         self.position.set_position(local_position);
+        self.set_child_positions();
     }
 }
 
@@ -152,7 +150,7 @@ impl Input for Menu {
                 ..
             } => {
                 let new_position = self.position.wanted_position() - Vec3::new(0.0, 100.0, 0.0);
-                self.position.interp_position(new_position, 0.5);
+                self.position.interp_position(new_position, 1.0);
                 return true;
             }
             WindowEvent::KeyboardInput {
@@ -163,14 +161,11 @@ impl Input for Menu {
                             Some(
                                 direction @ VirtualKeyCode::Down
                                 | direction @ VirtualKeyCode::Up
-                                | direction @ VirtualKeyCode::Left
-                                | direction @ VirtualKeyCode::Right,
                             ),
                         ..
                     },
                 ..
             } => {
-                let mut new_focused_tile = self.focused_tile;
                 let mut new_focused_container = self.focused_container;
 
                 match direction {
@@ -180,8 +175,6 @@ impl Input for Menu {
                     VirtualKeyCode::Down => {
                         new_focused_container = new_focused_container.saturating_add(1)
                     }
-                    VirtualKeyCode::Left => new_focused_tile = new_focused_tile.saturating_sub(1),
-                    VirtualKeyCode::Right => new_focused_tile = new_focused_tile.saturating_add(1),
                     _ => {}
                 };
 
@@ -189,32 +182,24 @@ impl Input for Menu {
                     if new_focused_container > self.containers.len() - 1 {
                         new_focused_container = self.containers.len() - 1;
                     }
-
-                    let focused_tiles = self.containers[new_focused_container].tiles.len();
-                    if focused_tiles > 0 && new_focused_tile > focused_tiles - 1 {
-                        new_focused_tile = focused_tiles - 1;
-                    }
                 } else {
                     new_focused_container = 0;
-                    new_focused_tile = 0;
                 }
 
-                self.focus_tile(new_focused_container, new_focused_tile);
+                self.focus_container(new_focused_container);
+                if let Some(_) = self.containers.get(new_focused_container) {
+                    let mut position = self.position.wanted_position();
+                    position.y = new_focused_container as f32 * (SCALE + COLLECTION_SPACING) * -1.0;
+                    self.position.interp_position(position, 0.75);
+                }
+
                 return true;
             }
             _ => {}
         }
 
         if let Some(container) = self.containers.get_mut(self.focused_container) {
-            if !container.input(event) {
-                if let Some(tile) = container.tiles.get_mut(self.focused_tile) {
-                    tile.input(event)
-                } else {
-                    false
-                }
-            } else {
-                true
-            }
+            container.input(event)
         } else {
             false
         }

@@ -8,7 +8,7 @@ use crate::{
     grabber::HttpGrabber,
     home::ImageDetails,
     menu::prelude::*,
-    renderer::{Renderer, SpriteId, SpriteInstance, Texture},
+    renderer::{Renderer, RenderContext, SpriteId, SpriteInstance, Texture},
     util::EaseMethod,
 };
 
@@ -98,7 +98,7 @@ impl UpdateDelta for Tile {
 impl Poll for Tile {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
         match &self.texture_bytes {
-            Some(_image_bytes) => Ok(true),
+            Some(_) => Ok(true),
             None => {
                 if let PollTask::Ready(bytes) = grabber.poll_request(self.details.url.clone())? {
                     self.texture_bytes = Some(bytes?.clone());

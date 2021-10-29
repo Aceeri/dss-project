@@ -2,6 +2,7 @@
 pub enum EaseMethod {
     Linear,
     EaseInOutCubic,
+    EaseOutCubic,
 }
 
 impl EaseMethod {
@@ -21,6 +22,10 @@ impl EaseMethod {
                     let inner = -2.0 * x + 2.0;
                     1.0 - (inner * inner * inner) / 2.0
                 }
+            }
+            EaseMethod::EaseOutCubic => {
+                let ix = 1.0 - x;
+                1.0 - ix * ix * ix
             }
         }
     }

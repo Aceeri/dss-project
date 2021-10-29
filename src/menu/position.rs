@@ -97,9 +97,9 @@ impl InterpPosition {
             duration: 0.0,
             //easing_methods: [EaseMethod::Linear, EaseMethod::Linear, EaseMethod::Linear],
             easing_methods: [
-                EaseMethod::EaseInOutCubic,
-                EaseMethod::EaseInOutCubic,
-                EaseMethod::EaseInOutCubic,
+                EaseMethod::EaseOutCubic,
+                EaseMethod::EaseOutCubic,
+                EaseMethod::EaseOutCubic,
             ],
         }
     }
