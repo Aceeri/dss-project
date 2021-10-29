@@ -20,7 +20,11 @@ pub struct Camera {
 impl Camera {
     pub fn new(width: f32, height: f32) -> Self {
         let aspect_ratio = width / height;
-        let scaling = 1000.0; // Just make things a bit easier to work with.
+
+        // Just make things a bit easier to work with.
+        // While this is kind of a magic value (I'm just taking the typical 1920x1080 arrangement of monitors),
+        // it keeps the scaling to typical monitors pretty clean.
+        let scaling = 1080.0;
         Self {
             // Back up 1 so we can actually see the images.
             eye: Vec3::new(0.0, 0.0, 1.0),

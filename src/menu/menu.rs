@@ -1,15 +1,15 @@
 use anyhow::Result;
-use glam::{Vec2, Vec3};
+use glam::Vec3;
 use image::EncodableLayout;
 use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
 use crate::{grabber::HttpGrabber, home::Home, renderer::Renderer};
 
-use super::{prelude::*, Collection, Tile};
+use super::{prelude::*, Collection};
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
-pub const COLLECTION_SPACING: f32 = 0.5 * SCALE;
+pub const COLLECTION_SPACING: f32 = 0.75 * SCALE;
 
 #[derive(Debug, Clone)]
 pub struct Menu {
@@ -66,7 +66,8 @@ impl Menu {
 
         for container in &home.data.collection().containers {
             let text_details = container.set.text.title.full.details();
-            let mut collection = Collection::new(text_details.content.clone(), container.set.ref_id);
+            let mut collection =
+                Collection::new(text_details.content.clone(), container.set.ref_id);
 
             if let Some(items) = &container.set.items {
                 collection.add_items(items);

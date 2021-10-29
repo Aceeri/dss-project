@@ -160,11 +160,9 @@ pub struct TextPass {
 
 impl TextPass {
     pub fn new(context: &RenderContext) -> Result<Self> {
-        let font = FontArc::try_from_slice(include_bytes!("./fonts/Urbanist/Urbanist-SemiBold.otf"))?;
-        let brush = GlyphBrushBuilder::using_font(font)
-            .draw_cache_position_tolerance(1.0)
-            .multithread(true)
-            .build();
+        let font =
+            FontArc::try_from_slice(include_bytes!("./fonts/Urbanist/Urbanist-Regular.otf"))?;
+        let brush = GlyphBrushBuilder::using_font(font).build();
 
         let glyph_bind_group_layout =
             context

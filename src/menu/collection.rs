@@ -1,15 +1,19 @@
 use anyhow::Result;
 use glam::{Vec2, Vec3};
-use winit::event::WindowEvent;
-use uuid::Uuid;
-use std::task::Poll as PollTask;
 use image::EncodableLayout;
+use std::task::Poll as PollTask;
+use uuid::Uuid;
+use winit::event::WindowEvent;
 
-use crate::{grabber::HttpGrabber, renderer::Renderer, home::{RefSet, Set, Item}};
+use crate::{
+    grabber::HttpGrabber,
+    home::{Item, RefSet},
+    renderer::Renderer,
+};
 
 use super::{prelude::*, Tile, ASPECT_RATIO};
 
-pub const TILE_SPACING: f32 = 0.2 * SCALE;
+pub const TILE_SPACING: f32 = 0.25 * SCALE;
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 
 #[derive(Debug, Clone)]
@@ -29,6 +33,7 @@ impl Collection {
     pub fn new(title: String, ref_id: Option<Uuid>) -> Self {
         let mut title_text = Text::new(title);
         title_text.set_position(&Vec3::new(0.0, 0.0, 0.0));
+        title_text.set_font_size(36.0);
 
         let mut new_collection = Self {
             position: Position::new(),
@@ -69,8 +74,8 @@ impl Collection {
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
         tile.set_position(&Vec3::new(
-            (ASPECT_RATIO * SCALE + TILE_SPACING) * self.tiles.len() as f32,
-            0.0,
+            75.0 + (ASPECT_RATIO * SCALE + TILE_SPACING) * self.tiles.len() as f32,
+            100.0,
             0.0,
         ));
         self.tiles.push(tile);
@@ -117,22 +122,26 @@ impl Poll for Collection {
         // poll for dynamic ref sets.
         if !self.refset_loaded {
             if let Some(ref_id) = self.ref_id {
-                let dynamic_refset = format!("https://cd-static.bamgrid.com/dp-117731241344/sets/{}.json", ref_id.to_hyphenated().to_string());
-                done = done && match grabber.poll_request(dynamic_refset.clone()) {
-                    Ok(PollTask::Pending) => false,
-                    Ok(PollTask::Ready(refset)) => {
+                let dynamic_refset = format!(
+                    "https://cd-static.bamgrid.com/dp-117731241344/sets/{}.json",
+                    ref_id.to_hyphenated().to_string()
+                );
+                done = done
+                    && match grabber.poll_request(dynamic_refset.clone()) {
+                        Ok(PollTask::Pending) => false,
+                        Ok(PollTask::Ready(refset)) => {
                             println!("got refset: {}", dynamic_refset);
 
                             let refset = refset?;
                             let refset = serde_json::from_slice(refset.as_bytes())?;
                             self.construct_refset(&refset);
                             false
-                    }
-                    Err(err) => {
-                        eprintln!("fetch dynamic refset: {:?}", err);
-                        false
-                    }
-                };
+                        }
+                        Err(err) => {
+                            eprintln!("fetch dynamic refset: {:?}", err);
+                            false
+                        }
+                    };
             }
         }
 
