@@ -37,7 +37,7 @@ impl App {
         let renderer = Renderer::new(&window).await?;
 
         let mut menu = Menu::new();
-        menu.set_position(&Vec3::new(50.0, 50.0, 0.0));
+        menu.set_position(&Vec3::new(100.0, 50.0, 0.0));
 
         let http_grabber = HttpGrabber::new();
 

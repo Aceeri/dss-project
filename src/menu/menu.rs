@@ -9,7 +9,6 @@ use crate::{grabber::HttpGrabber, home::Home, renderer::Renderer};
 use super::{prelude::*, Collection, Tile};
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
-pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 pub const COLLECTION_SPACING: f32 = 0.5 * SCALE;
 
 #[derive(Debug, Clone)]
@@ -28,7 +27,7 @@ pub struct Menu {
     // List of tiles that need to be re-rendered immediately.
     dirty_list: Vec<usize>,
 
-    home: Option<Home>,
+    home_loaded: bool,
 }
 
 impl Menu {
@@ -38,11 +37,12 @@ impl Menu {
             collections: Vec::new(),
             focused_collection: 0,
             focused_tile: 0,
-            home: None,
 
             partial_collection: 0,
             partial_tile: 0,
             dirty_list: Vec::new(),
+
+            home_loaded: false,
         }
     }
 
@@ -54,40 +54,32 @@ impl Menu {
     pub fn push_collection(&mut self, mut collection: Collection) {
         collection.set_parent_position(&self.absolute_position());
         collection.set_position(&Vec3::new(
-            0.0,
-            (1.0 * SCALE + COLLECTION_SPACING) * self.collections.len() as f32,
+            50.0,
+            90.0 + (1.0 * SCALE + COLLECTION_SPACING) * self.collections.len() as f32,
             0.0,
         ));
         self.collections.push(collection);
     }
 
-    pub fn construct_home(&mut self) {
+    pub fn construct_home(&mut self, home: &Home) {
         let mut new_collections = Vec::new();
 
-        if let Some(home) = &self.home {
-            for container in &home.data.standard_collection.containers {
-                let text_details = container.set.text.title.full.details();
-                let mut collection = Collection::new(text_details.content.clone());
+        for container in &home.data.collection().containers {
+            let text_details = container.set.text.title.full.details();
+            let mut collection = Collection::new(text_details.content.clone(), container.set.ref_id);
 
-                if let Some(items) = &container.set.items {
-                    for item in items {
-                        // Get images with the aspect ratio we want.
-                        if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
-                            let details = image.details();
-                            let mut tile = Tile::new(details.clone());
-                            tile.set_size(Vec2::new(1.78 * SCALE, 1.0 * SCALE));
-                            collection.push_tile(tile);
-                        }
-                    }
-                }
-
-                new_collections.push(collection);
+            if let Some(items) = &container.set.items {
+                collection.add_items(items);
             }
+
+            new_collections.push(collection);
         }
 
         for new_collection in new_collections {
             self.push_collection(new_collection);
         }
+
+        self.home_loaded = true;
     }
 
     pub fn focus_tile(&mut self, collection_index: usize, tile_index: usize) {
@@ -153,7 +145,7 @@ impl Input for Menu {
                 ..
             } => {
                 let new_position = self.position.wanted_position() - Vec3::new(0.0, 100.0, 0.0);
-                self.position.interp_position(new_position, 0.2);
+                self.position.interp_position(new_position, 0.5);
                 return true;
             }
             WindowEvent::KeyboardInput {
@@ -224,26 +216,23 @@ impl Input for Menu {
 
 impl Poll for Menu {
     fn poll(&mut self, grabber: &mut HttpGrabber) -> Result<bool> {
-        match &self.home {
-            Some(_) => {
-                let mut done = true;
-                for collection in &mut self.collections {
-                    done = done && collection.poll(grabber)?;
-                }
-
-                Ok(done)
+        if self.home_loaded {
+            let mut done = true;
+            for collection in &mut self.collections {
+                done = done && collection.poll(grabber)?;
             }
-            None => {
-                match grabber.poll_request(HOME_URL.to_owned())? {
-                    PollTask::Pending => Ok(false),
-                    PollTask::Ready(home) => {
-                        println!("got homepage, rendering page now");
-                        // Construct initial homepage.
-                        let home = home?;
-                        self.home = Some(serde_json::from_slice(home.as_bytes())?);
-                        self.construct_home();
-                        Ok(false)
-                    }
+
+            Ok(done)
+        } else {
+            match grabber.poll_request(HOME_URL.to_owned())? {
+                PollTask::Pending => Ok(false),
+                PollTask::Ready(home) => {
+                    println!("got homepage, rendering page now");
+                    // Construct initial homepage.
+                    let home = home?;
+                    let home = serde_json::from_slice(home.as_bytes())?;
+                    self.construct_home(&home);
+                    Ok(false)
                 }
             }
         }
@@ -297,7 +286,7 @@ mod test {
 
         let mut menu = Menu::new();
 
-        let mut collection = Collection::new("dummy".to_owned());
+        let mut collection = Collection::new("dummy".to_owned(), None);
         let tile = Tile::new(dummy_details.clone());
         collection.push_tile(tile);
 
@@ -330,7 +319,7 @@ mod test {
             Vec3::new(30.0, 30.0, 30.0)
         );
 
-        let mut new_collection = Collection::new("dummy".to_owned());
+        let mut new_collection = Collection::new("dummy".to_owned(), None);
         let new_tile = Tile::new(dummy_details);
         new_collection.push_tile(new_tile);
         menu.push_collection(new_collection);

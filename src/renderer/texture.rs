@@ -101,7 +101,6 @@ impl Texture {
         let width = size[0];
         let height = size[1];
 
-        eprintln!("data length: {:?}", data.len());
         queue.write_texture(
             wgpu::ImageCopyTexture {
                 aspect: wgpu::TextureAspect::All,

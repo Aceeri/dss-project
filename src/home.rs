@@ -9,19 +9,48 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Home {
-    pub data: Data,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Data {
-    // Maybe this should be an enum?
-    pub standard_collection: StandardCollection,
+    pub data: HomeKind,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StandardCollection {
+pub struct RefSet {
+    pub data: SetKind,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum SetKind {
+    CuratedSet(Set),
+    PersonalizedCuratedSet(Set),
+    TrendingSet(Set),
+}
+
+impl SetKind {
+    pub fn set(&self) -> &Set {
+        match self {
+            SetKind::CuratedSet(set) => set,
+            SetKind::PersonalizedCuratedSet(set) => set,
+            SetKind::TrendingSet(set) => set,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub enum HomeKind {
+    StandardCollection(Collection),
+}
+
+impl HomeKind {
+    pub fn collection(&self) -> &Collection {
+        match self {
+            HomeKind::StandardCollection(collection) => collection,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Collection {
     //pub call_to_action: ?,
     pub collection_group: CollectionGroup,
     pub collection_id: Uuid,
@@ -48,6 +77,9 @@ pub struct Set {
     //pub meta: Option<Meta>,
     //pub type: String,
     //pub style: Option<String>,
+    pub ref_id: Option<Uuid>,
+    //pub ref_id_type: String,
+    //pub ref_type: String,
     pub text: TextRefs,
 }
 
@@ -230,20 +262,29 @@ pub struct Slug {
 
 #[cfg(test)]
 mod test {
-    use crate::home::Home;
+    use super::{Home, RefSet};
 
     fn fetch_home() -> Home {
         let url = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
         reqwest::blocking::get(url)
             .expect("response from url")
             .json::<Home>()
-            .expect("working deserialization")
+            .expect("working home deserialization")
     }
 
     // Can we fetch and deserialize the home screen.
     #[test]
-    fn deserialize() {
+    fn deserialize_home() {
         fetch_home();
+    }
+
+    #[test]
+    fn deserialize_refset() {
+        let url = "https://cd-static.bamgrid.com/dp-117731241344/sets/bd1bfb9a-bbf7-43a0-ac5e-3e3889d7224d.json";
+        reqwest::blocking::get(url)
+            .expect("response from url")
+            .json::<RefSet>()
+            .expect("working refset deserialization");
     }
 
     // Can fetch the home screen and load an image correctly. Somewhat redundant with deserialization.
@@ -252,7 +293,7 @@ mod test {
         use crate::image::EncodableLayout;
         let home = fetch_home();
 
-        let items = home.data.standard_collection.containers[0]
+        let items = home.data.collection().containers[0]
             .set
             .items
             .as_ref()
@@ -279,7 +320,7 @@ mod test {
     fn fetch_text() {
         let home = fetch_home();
 
-        let details = home.data.standard_collection.containers[0]
+        let details = home.data.collection().containers[0]
             .set
             .text
             .title

@@ -1,17 +1,24 @@
 use anyhow::Result;
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 use winit::event::WindowEvent;
+use uuid::Uuid;
+use std::task::Poll as PollTask;
+use image::EncodableLayout;
 
-use crate::{grabber::HttpGrabber, renderer::Renderer};
+use crate::{grabber::HttpGrabber, renderer::Renderer, home::{RefSet, Set, Item}};
 
 use super::{prelude::*, Tile, ASPECT_RATIO};
 
 pub const TILE_SPACING: f32 = 0.2 * SCALE;
+pub static ASPECT_RATIO_STRING: &'static str = "1.78";
 
 #[derive(Debug, Clone)]
 pub struct Collection {
     position: Position,
     title_text: Text,
+    ref_id: Option<Uuid>,
+    refset_loaded: bool,
+
     pub tiles: Vec<Tile>,
     focused: bool,
 
@@ -19,13 +26,16 @@ pub struct Collection {
 }
 
 impl Collection {
-    pub fn new(title: String) -> Self {
+    pub fn new(title: String, ref_id: Option<Uuid>) -> Self {
         let mut title_text = Text::new(title);
-        title_text.set_position(&Vec3::new(10.0, 0.0, 0.0));
+        title_text.set_position(&Vec3::new(0.0, 0.0, 0.0));
 
         let mut new_collection = Self {
             position: Position::new(),
             title_text: title_text,
+            ref_id: ref_id,
+            refset_loaded: false,
+
             tiles: Vec::new(),
             focused: false,
 
@@ -34,6 +44,26 @@ impl Collection {
 
         new_collection.set_child_positions();
         new_collection
+    }
+
+    pub fn add_items(&mut self, items: &Vec<Item>) {
+        for item in items {
+            // Get images with the aspect ratio we want.
+            if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
+                let details = image.details();
+                let mut tile = Tile::new(details.clone());
+                tile.set_size(Vec2::new(1.78 * SCALE, 1.0 * SCALE));
+                self.push_tile(tile);
+            }
+        }
+    }
+
+    pub fn construct_refset(&mut self, refset: &RefSet) {
+        if let Some(items) = &refset.data.set().items {
+            self.add_items(items);
+        }
+
+        self.refset_loaded = true;
     }
 
     pub fn push_tile(&mut self, mut tile: Tile) {
@@ -82,6 +112,28 @@ impl Poll for Collection {
         let mut done = true;
         for tile in &mut self.tiles {
             done = done && tile.poll(grabber)?;
+        }
+
+        // poll for dynamic ref sets.
+        if !self.refset_loaded {
+            if let Some(ref_id) = self.ref_id {
+                let dynamic_refset = format!("https://cd-static.bamgrid.com/dp-117731241344/sets/{}.json", ref_id.to_hyphenated().to_string());
+                done = done && match grabber.poll_request(dynamic_refset.clone()) {
+                    Ok(PollTask::Pending) => false,
+                    Ok(PollTask::Ready(refset)) => {
+                            println!("got refset: {}", dynamic_refset);
+
+                            let refset = refset?;
+                            let refset = serde_json::from_slice(refset.as_bytes())?;
+                            self.construct_refset(&refset);
+                            false
+                    }
+                    Err(err) => {
+                        eprintln!("fetch dynamic refset: {:?}", err);
+                        false
+                    }
+                };
+            }
         }
 
         Ok(done)

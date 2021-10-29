@@ -160,7 +160,7 @@ pub struct TextPass {
 
 impl TextPass {
     pub fn new(context: &RenderContext) -> Result<Self> {
-        let font = FontArc::try_from_slice(include_bytes!("./fonts/Urbanist/Urbanist-Light.otf"))?;
+        let font = FontArc::try_from_slice(include_bytes!("./fonts/Urbanist/Urbanist-SemiBold.otf"))?;
         let brush = GlyphBrushBuilder::using_font(font)
             .draw_cache_position_tolerance(1.0)
             .multithread(true)
@@ -321,7 +321,6 @@ impl TextPass {
                 let offset = [rect.min[0], rect.min[1]];
                 let size = [rect.width(), rect.height()];
 
-                eprintln!("write {:?}, size {:?}", offset, size);
                 glyph_texture.write_texture(context.queue(), offset, size, texture_data);
             },
             GlyphInstance::from_vertex,
@@ -407,7 +406,7 @@ impl TextPass {
 
             self.brush.queue(Section {
                 screen_position: (text.position[0], text.position[1]),
-                //bounds: (context.camera().right.abs(), context.camera().bottom.abs()),
+                bounds: (context.camera().right.abs(), context.camera().bottom.abs()),
                 text: vec![glyph_brush::Text::new(&text.text)
                     .with_color(text.color)
                     .with_scale(scale)],
