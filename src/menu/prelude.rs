@@ -1,11 +1,1 @@
-
-pub use super::{
-    Input,
-    Poll,
-    Draw,
-    InterpPosition,
-    Position,
-    PositionHierarchy,
-    Text,
-    SCALE,
-};
+pub use super::{Draw, Input, InterpPosition, Poll, Position, PositionHierarchy, Text, SCALE};

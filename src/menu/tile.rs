@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 use glam::Vec2;
 use image::EncodableLayout;

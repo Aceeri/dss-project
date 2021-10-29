@@ -4,18 +4,9 @@ use image::EncodableLayout;
 use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 
-use crate::{
-    grabber::HttpGrabber,
-    home::Home,
-    renderer::Renderer,
+use crate::{grabber::HttpGrabber, home::Home, renderer::Renderer};
 
-};
-
-use super::{
-    prelude::*,
-    Collection,
-    Tile,
-};
+use super::{prelude::*, Collection, Tile};
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";

@@ -11,7 +11,7 @@ pub use crate::{
     grabber::HttpGrabber,
     home::Home,
     image::EncodableLayout,
-    menu::{Collection, Poll, Draw, Input, Menu, PositionHierarchy, Tile},
+    menu::{Collection, Draw, Input, Menu, Poll, PositionHierarchy, Tile},
     renderer::Renderer,
 };
 
@@ -120,7 +120,10 @@ impl App {
                                         modes.sort_by(|a, b| a.cmp(&b));
                                         let mut video_mode = modes.get(0).cloned();
 
-                                        modes = modes.into_iter().filter(|mode| mode.size() == WANTED_SIZE).collect::<Vec<_>>();
+                                        modes = modes
+                                            .into_iter()
+                                            .filter(|mode| mode.size() == WANTED_SIZE)
+                                            .collect::<Vec<_>>();
                                         if let Some(wanted_mode) = modes.get(0) {
                                             video_mode = Some(wanted_mode.clone())
                                         }
@@ -137,7 +140,10 @@ impl App {
                             WindowEvent::Resized(physical_size) => {
                                 renderer.resize(*physical_size);
                             }
-                            WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
+                            WindowEvent::ScaleFactorChanged {
+                                new_inner_size,
+                                scale_factor,
+                            } => {
                                 renderer.resize(**new_inner_size);
                                 renderer.set_scale_factor(*scale_factor);
                             }

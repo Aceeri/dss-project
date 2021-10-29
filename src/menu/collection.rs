@@ -2,16 +2,9 @@ use anyhow::Result;
 use glam::Vec3;
 use winit::event::WindowEvent;
 
-use crate::{
-    grabber::HttpGrabber,
-    renderer::Renderer,
-};
+use crate::{grabber::HttpGrabber, renderer::Renderer};
 
-use super::{
-    prelude::*,
-    Tile,
-    ASPECT_RATIO,
-};
+use super::{prelude::*, Tile, ASPECT_RATIO};
 
 pub const TILE_SPACING: f32 = 0.2 * SCALE;
 

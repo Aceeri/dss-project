@@ -1,4 +1,3 @@
-
 #[derive(Debug, Copy, Clone)]
 pub enum EaseMethod {
     Linear,
@@ -14,9 +13,11 @@ impl EaseMethod {
         match self {
             EaseMethod::Linear => x,
             EaseMethod::EaseInOutCubic => {
-                if x < 0.5 { // in
+                if x < 0.5 {
+                    // in
                     4.0 * x * x * x
-                } else { // out
+                } else {
+                    // out
                     let inner = -2.0 * x + 2.0;
                     1.0 - (inner * inner * inner) / 2.0
                 }

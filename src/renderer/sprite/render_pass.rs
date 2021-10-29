@@ -1,4 +1,3 @@
-
 use anyhow::Result;
 
 use super::{sprite, SpriteInstance, SpriteMesh, SpriteTexture};

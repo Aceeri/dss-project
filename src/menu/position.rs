@@ -35,9 +35,15 @@ impl Position {
 pub trait PositionHierarchy {
     fn position(&self) -> &Position;
     fn position_mut(&mut self) -> &mut Position;
-    fn absolute_position(&self) -> Vec3 { self.position().absolute_position() }
-    fn local_position(&self) -> Vec3 { self.position().local_position() }
-    fn parent_position(&self) -> Vec3 { self.position().parent_position() }
+    fn absolute_position(&self) -> Vec3 {
+        self.position().absolute_position()
+    }
+    fn local_position(&self) -> Vec3 {
+        self.position().local_position()
+    }
+    fn parent_position(&self) -> Vec3 {
+        self.position().parent_position()
+    }
     fn set_position(&mut self, local_position: &Vec3) {
         self.position_mut().local_position = *local_position;
         self.set_child_positions();
@@ -90,7 +96,11 @@ impl InterpPosition {
             counter: 0.0,
             duration: 0.0,
             //easing_methods: [EaseMethod::Linear, EaseMethod::Linear, EaseMethod::Linear],
-            easing_methods: [EaseMethod::EaseInOutCubic, EaseMethod::EaseInOutCubic, EaseMethod::EaseInOutCubic],
+            easing_methods: [
+                EaseMethod::EaseInOutCubic,
+                EaseMethod::EaseInOutCubic,
+                EaseMethod::EaseInOutCubic,
+            ],
         }
     }
 
@@ -111,9 +121,21 @@ impl InterpPosition {
 
             let percent = self.counter / self.duration;
 
-            let x = (self.easing_methods[0]).ease(self.origin_local.x, self.wanted_local.x, percent as f32);
-            let y = (self.easing_methods[1]).ease(self.origin_local.y, self.wanted_local.y, percent as f32);
-            let z = (self.easing_methods[2]).ease(self.origin_local.z, self.wanted_local.z, percent as f32);
+            let x = (self.easing_methods[0]).ease(
+                self.origin_local.x,
+                self.wanted_local.x,
+                percent as f32,
+            );
+            let y = (self.easing_methods[1]).ease(
+                self.origin_local.y,
+                self.wanted_local.y,
+                percent as f32,
+            );
+            let z = (self.easing_methods[2]).ease(
+                self.origin_local.z,
+                self.wanted_local.z,
+                percent as f32,
+            );
 
             self.position.local_position = Vec3::new(x, y, z);
         }

@@ -1,9 +1,7 @@
-
 use crate::{
     menu::prelude::*,
-    renderer::{self, TextId, Renderer},
+    renderer::{self, Renderer, TextId},
 };
-
 
 #[derive(Debug, Clone)]
 pub struct Text {
@@ -59,7 +57,9 @@ impl Text {
 }
 
 impl PositionHierarchy for Text {
-    fn position(&self) -> &Position { &self.position }
+    fn position(&self) -> &Position {
+        &self.position
+    }
     fn position_mut(&mut self) -> &mut Position {
         self.set_update();
         &mut self.position
@@ -72,12 +72,15 @@ impl Draw for Text {
             match &self.text_id {
                 Some(text_id) => {
                     let new_position = self.absolute_position();
-                    renderer.text_pass.update_text(text_id, renderer::Text {
-                        text: self.text.clone(),
-                        font_size: self.font_size,
-                        position: [new_position.x, new_position.y],
-                        color: self.color,
-                    })
+                    renderer.text_pass.update_text(
+                        text_id,
+                        renderer::Text {
+                            text: self.text.clone(),
+                            font_size: self.font_size,
+                            position: [new_position.x, new_position.y],
+                            color: self.color,
+                        },
+                    )
                 }
                 None => {
                     let new_position = self.absolute_position();

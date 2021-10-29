@@ -4,13 +4,7 @@ use glyph_brush::{
 
 use anyhow::Result;
 
-use wgpu::{
-    BindGroup,
-    BindGroupLayout,
-    BindGroupEntry,
-    BindingResource,
-    util::DeviceExt,
-};
+use wgpu::{util::DeviceExt, BindGroup, BindGroupEntry, BindGroupLayout, BindingResource};
 
 use crate::{
     renderer::{RenderContext, Texture},
@@ -38,32 +32,38 @@ impl GlyphInstance {
             array_stride: mem::size_of::<GlyphInstance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
-                wgpu::VertexAttribute { // z
+                wgpu::VertexAttribute {
+                    // z
                     offset: 0,
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float32,
                 },
-                wgpu::VertexAttribute { // left top
+                wgpu::VertexAttribute {
+                    // left top
                     offset: mem::size_of::<[f32; 1]>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-                wgpu::VertexAttribute { // right bottom
+                wgpu::VertexAttribute {
+                    // right bottom
                     offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 2,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-                wgpu::VertexAttribute { // texture left top
+                wgpu::VertexAttribute {
+                    // texture left top
                     offset: mem::size_of::<[f32; 5]>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-                wgpu::VertexAttribute { // texture right bottom
+                wgpu::VertexAttribute {
+                    // texture right bottom
                     offset: mem::size_of::<[f32; 7]>() as wgpu::BufferAddress,
                     shader_location: 4,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-                wgpu::VertexAttribute { // color
+                wgpu::VertexAttribute {
+                    // color
                     offset: mem::size_of::<[f32; 9]>() as wgpu::BufferAddress,
                     shader_location: 5,
                     format: wgpu::VertexFormat::Float32x4,
@@ -195,7 +195,8 @@ impl TextPass {
                 });
 
         let (width, height) = brush.texture_dimensions();
-        let (glyph_texture, glyph_bind_group) = Self::new_glyph_cache(context, &glyph_bind_group_layout, width, height)?;
+        let (glyph_texture, glyph_bind_group) =
+            Self::new_glyph_cache(context, &glyph_bind_group_layout, width, height)?;
 
         let shader = context
             .device()
@@ -203,7 +204,6 @@ impl TextPass {
                 label: Some("TextPass::shader.wgsl"),
                 source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
             });
-
 
         let pipeline_layout =
             context
@@ -341,24 +341,22 @@ impl TextPass {
 
                     self.supported_instances = instances.len() as u64;
                 } else {
-                    context
-                        .queue()
-                        .write_buffer(
-                            &self.instances,
-                            0,
-                            bytemuck::cast_slice(instances.as_slice()),
-                        );
-
+                    context.queue().write_buffer(
+                        &self.instances,
+                        0,
+                        bytemuck::cast_slice(instances.as_slice()),
+                    );
                 }
 
                 self.current_instances = instances.len();
             }
-            Ok(BrushAction::ReDraw) => {},
+            Ok(BrushAction::ReDraw) => {}
             Err(BrushError::TextureTooSmall { suggested, .. }) => {
                 let (width, height) = suggested;
                 println!("resizing glyph texture to {}x{}", width, height);
 
-                let (glyph_texture, glyph_bind_group) = Self::new_glyph_cache(context, &self.glyph_bind_group_layout, width, height)?;
+                let (glyph_texture, glyph_bind_group) =
+                    Self::new_glyph_cache(context, &self.glyph_bind_group_layout, width, height)?;
                 self.glyph_texture = glyph_texture;
                 self.glyph_bind_group = glyph_bind_group;
 
@@ -380,7 +378,6 @@ impl TextPass {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
-
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("TextPass::render_pass"),
             color_attachments: &[wgpu::RenderPassColorAttachment {
@@ -408,25 +405,26 @@ impl TextPass {
         for text in self.text.iter() {
             let scale = (text.font_size * context.scale_factor() as f32).round();
 
-            self.brush.queue(
-                Section {
-                    screen_position: (text.position[0], text.position[1]),
-                    //bounds: (context.camera().right.abs(), context.camera().bottom.abs()),
-                    text: vec![
-                        glyph_brush::Text::new(&text.text)
-                            .with_color(text.color)
-                            .with_scale(scale)
-                    ],
-                    ..Default::default()
-                }
-            );
+            self.brush.queue(Section {
+                screen_position: (text.position[0], text.position[1]),
+                //bounds: (context.camera().right.abs(), context.camera().bottom.abs()),
+                text: vec![glyph_brush::Text::new(&text.text)
+                    .with_color(text.color)
+                    .with_scale(scale)],
+                ..Default::default()
+            });
         }
 
         render_pass.set_vertex_buffer(0, self.instances.slice(..));
         render_pass.draw(0..4, 0..self.current_instances as u32);
     }
 
-    pub fn new_glyph_cache(context: &RenderContext, layout: &BindGroupLayout, width: u32, height: u32) -> Result<(Texture, BindGroup)> {
+    pub fn new_glyph_cache(
+        context: &RenderContext,
+        layout: &BindGroupLayout,
+        width: u32,
+        height: u32,
+    ) -> Result<(Texture, BindGroup)> {
         eprintln!("new glyph cache, {}x{}", width, height);
         let texture = Texture::create_single_channel(
             context.device(),
@@ -435,14 +433,22 @@ impl TextPass {
             Some("TextPass::glyph_texture"),
         )?;
 
-        let bind_group = context.device().create_bind_group(&wgpu::BindGroupDescriptor{
-            layout: layout,
-            entries: &[
-                BindGroupEntry { binding: 0, resource: BindingResource::TextureView(&texture.view), },
-                BindGroupEntry { binding: 1, resource: BindingResource::Sampler(&texture.sampler), },
-            ],
-            label: Some("TextPass::glyph_texture_bind_group"),
-        });
+        let bind_group = context
+            .device()
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                layout: layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(&texture.view),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(&texture.sampler),
+                    },
+                ],
+                label: Some("TextPass::glyph_texture_bind_group"),
+            });
 
         Ok((texture, bind_group))
     }

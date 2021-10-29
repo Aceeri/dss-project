@@ -4,9 +4,7 @@ use winit::{event::WindowEvent, window::Window};
 
 use std::mem;
 
-use super::{
-    Camera, CameraUniform, SpritePass, TextPass, Texture
-};
+use super::{Camera, CameraUniform, SpritePass, TextPass, Texture};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]

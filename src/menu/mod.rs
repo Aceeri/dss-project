@@ -1,4 +1,3 @@
-
 pub const ASPECT_RATIO: f32 = 1.78;
 pub const SCALE: f32 = 100.0;
 
@@ -6,14 +5,14 @@ pub mod collection;
 pub mod menu;
 pub mod position;
 pub mod prelude;
-pub mod tile;
 pub mod text;
+pub mod tile;
 
 pub use collection::Collection;
 pub use menu::Menu;
 pub use position::{InterpPosition, Position, PositionHierarchy};
-pub use tile::Tile;
 pub use text::Text;
+pub use tile::Tile;
 
 use crate::grabber::HttpGrabber;
 use anyhow::Result;

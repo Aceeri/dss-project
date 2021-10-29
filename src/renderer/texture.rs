@@ -175,7 +175,7 @@ impl Texture {
         }
     }
 
-    // Creates a single channel image. 
+    // Creates a single channel image.
     pub fn create_single_channel(
         device: &wgpu::Device,
         width: u32,
