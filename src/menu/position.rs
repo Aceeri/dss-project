@@ -50,12 +50,25 @@ pub trait PositionHierarchy {
 #[derive(Debug, Copy, Clone)]
 pub enum EaseMethod {
     Linear,
+    EaseInOutCubic,
 }
 
 impl EaseMethod {
     pub fn ease(&self, start: f32, end: f32, percent: f32) -> f32 {
+        start + (end - start) * self.progress(percent)
+    }
+
+    pub fn progress(&self, x: f32) -> f32 {
         match self {
-            EaseMethod::Linear => start + (end - start) * percent,
+            EaseMethod::Linear => x,
+            EaseMethod::EaseInOutCubic => {
+                if x < 0.5 { // in
+                    4.0 * x * x * x
+                } else { // out
+                    let inner = -2.0 * x + 2.0;
+                    1.0 - (inner * inner * inner) / 2.0
+                }
+            }
         }
     }
 }
@@ -97,11 +110,12 @@ impl InterpPosition {
             wanted_local: local,
             counter: 0.0,
             duration: 0.0,
-            easing_methods: [EaseMethod::Linear, EaseMethod::Linear, EaseMethod::Linear],
+            //easing_methods: [EaseMethod::Linear, EaseMethod::Linear, EaseMethod::Linear],
+            easing_methods: [EaseMethod::EaseInOutCubic, EaseMethod::EaseInOutCubic, EaseMethod::EaseInOutCubic],
         }
     }
 
-    pub fn interp_position(&mut self, position: Vec3, duration: f64,) {
+    pub fn interp_position(&mut self, position: Vec3, duration: f64) {
         self.counter = 0.0;
         self.duration = duration;
         self.origin_local = self.position.local_position();
