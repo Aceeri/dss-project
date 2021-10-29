@@ -1,5 +1,5 @@
 pub const ASPECT_RATIO: f32 = 1.78;
-pub const SCALE: f32 = 100.0;
+pub const SCALE: f32 = 200.0;
 
 pub mod container;
 pub mod menu;

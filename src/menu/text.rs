@@ -54,6 +54,16 @@ impl Text {
         self.set_update();
         self.color = color;
     }
+
+    pub fn to_render_text(&self) -> renderer::Text {
+        let new_position = self.absolute_position();
+        renderer::Text {
+            text: self.text.clone(),
+            font_size: self.font_size,
+            position: [new_position.x, new_position.y, new_position.z],
+            color: self.color,
+        }
+    }
 }
 
 impl PositionHierarchy for Text {
@@ -71,26 +81,10 @@ impl Draw for Text {
         if self.update {
             match &self.text_id {
                 Some(text_id) => {
-                    let new_position = self.absolute_position();
-                    renderer.text_pass.update_text(
-                        text_id,
-                        renderer::Text {
-                            text: self.text.clone(),
-                            font_size: self.font_size,
-                            position: [new_position.x, new_position.y],
-                            color: self.color,
-                        },
-                    )
+                    renderer.text_pass.update_text( text_id, self.to_render_text());
                 }
                 None => {
-                    let new_position = self.absolute_position();
-                    let text_id = renderer.text_pass.add_text(renderer::Text {
-                        text: self.text.clone(),
-                        font_size: self.font_size,
-                        position: [new_position.x, new_position.y],
-                        color: self.color,
-                    });
-
+                    let text_id = renderer.text_pass.add_text(self.to_render_text());
                     self.text_id = Some(text_id);
                 }
             }

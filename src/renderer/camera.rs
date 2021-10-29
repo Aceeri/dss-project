@@ -7,6 +7,7 @@ pub struct Camera {
     pub eye: Vec3,
     pub target: Vec3,
     pub up: Vec3,
+
     pub left: f32,
     pub right: f32,
     pub bottom: f32,

@@ -49,8 +49,8 @@ impl Menu {
     pub fn push_container(&mut self, mut container: Container) {
         container.set_parent_position(&self.absolute_position());
         container.set_position(&Vec3::new(
-            50.0,
-            90.0 + (1.0 * SCALE + COLLECTION_SPACING) * self.containers.len() as f32,
+            0.5 * SCALE,
+            SCALE + (1.0 * SCALE + COLLECTION_SPACING) * self.containers.len() as f32,
             0.0,
         ));
         self.containers.push(container);
@@ -294,7 +294,7 @@ mod test {
         let mut menu = Menu::new();
 
         let mut container = Container::new("dummy".to_owned(), None);
-        let tile = Tile::new(dummy_details.clone());
+        let tile = Tile::new("dummy".to_owned(), dummy_details.clone());
         container.push_tile(tile);
 
         menu.push_container(container);
@@ -327,7 +327,7 @@ mod test {
         );
 
         let mut new_container = Container::new("dummy".to_owned(), None);
-        let new_tile = Tile::new(dummy_details);
+        let new_tile = Tile::new("dummy".to_owned(), dummy_details);
         new_container.push_tile(new_tile);
         menu.push_container(new_container);
         println!("{:?}", menu.absolute_position());

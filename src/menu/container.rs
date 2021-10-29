@@ -55,12 +55,31 @@ impl Container {
         for item in items {
             // Get images with the aspect ratio we want.
             if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
-                let details = image.details();
-                let mut tile = Tile::new(details.clone());
+                let image_details = image.details();
+                let title = item.text.title.full.details().content.clone();
+                let mut tile = Tile::new(title, image_details.clone());
                 tile.set_size(Vec2::new(1.78 * SCALE, 1.0 * SCALE));
                 self.push_tile(tile);
             }
         }
+    }
+
+    pub fn remove_tile(&mut self, tile_index: usize) {
+        self.tiles.swap_remove(tile_index);
+    }
+
+    pub fn reset_tile_positions(&mut self) {
+        for (index, tile) in self.tiles.iter_mut().enumerate() {
+            tile.set_position(&Container::tile_position(index));
+        }
+    }
+
+    pub fn tile_position(tile_index: usize) -> Vec3 {
+        Vec3::new( 
+            0.75 * SCALE + (ASPECT_RATIO * SCALE + TILE_SPACING) * tile_index as f32,
+            SCALE,
+            0.0,
+        )
     }
 
     pub fn construct_refset(&mut self, refset: &RefSet) {
@@ -73,11 +92,7 @@ impl Container {
 
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
-        tile.set_position(&Vec3::new(
-            75.0 + (ASPECT_RATIO * SCALE + TILE_SPACING) * self.tiles.len() as f32,
-            100.0,
-            0.0,
-        ));
+        tile.set_position(&Container::tile_position(self.tiles.len()));
         self.tiles.push(tile);
     }
 

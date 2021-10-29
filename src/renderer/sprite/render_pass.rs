@@ -287,4 +287,12 @@ impl SpritePass {
             self.set_instance(sprite.instance, new_instance);
         }
     }
+
+    pub fn fallback_texture(&self, context: &RenderContext) -> Texture {
+        let fallback_bytes = include_bytes!("./fallback.png");
+        let fallback_texture = Texture::from_bytes(&context.device(), &context.queue(), fallback_bytes, "fallback.png")
+            .expect("failed to load fallback image");
+
+        fallback_texture
+    }
 }

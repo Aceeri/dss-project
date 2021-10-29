@@ -130,7 +130,7 @@ pub struct Text {
     pub text: String,
     pub font_size: f32,
     pub color: [f32; 4],
-    pub position: [f32; 2],
+    pub position: [f32; 3],
 }
 
 impl Default for Text {
@@ -139,7 +139,7 @@ impl Default for Text {
             text: "".to_owned(),
             font_size: 24.0,
             color: [1.0, 1.0, 1.0, 1.0],
-            position: [0.0, 0.0],
+            position: [0.0, 0.0, 0.0],
         }
     }
 }
@@ -407,7 +407,8 @@ impl TextPass {
                 bounds: (context.camera().right.abs(), context.camera().bottom.abs()),
                 text: vec![glyph_brush::Text::new(&text.text)
                     .with_color(text.color)
-                    .with_scale(scale)],
+                    .with_scale(scale)
+                    .with_z(text.position[2])],
                 ..Default::default()
             });
         }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 use image::EncodableLayout;
 use std::task::Poll as PollTask;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
@@ -18,7 +18,10 @@ pub struct Tile {
     size: Vec2,
     focused: bool,
 
+    title: String,
+
     sprite: Option<SpriteId>,
+    fallback_text: Option<Text>,
     texture_bytes: Option<bytes::Bytes>,
     details: ImageDetails,
 
@@ -28,11 +31,14 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub fn new(details: ImageDetails) -> Self {
+    pub fn new(title: String, details: ImageDetails) -> Self {
         Self {
             position: Position::new(),
             size: Vec2::new(0.2, 0.2),
             focused: false,
+
+            title: title,
+            fallback_text: None,
 
             sprite: None,
             texture_bytes: None,
@@ -84,7 +90,7 @@ impl UpdateDelta for Tile {
     fn update_delta(&mut self, delta: f64) {
         if self.counter < self.duration {
             self.counter += delta as f64;
-            self.alpha = EaseMethod::Linear.ease(0.0, 1.0, (self.counter / self.duration) as f32);
+            self.alpha = EaseMethod::EaseInOutCubic.ease(0.0, 1.0, (self.counter / self.duration) as f32);
         }
     }
 }
@@ -114,7 +120,12 @@ impl PositionHierarchy for Tile {
     fn position_mut(&mut self) -> &mut Position {
         &mut self.position
     }
-    fn set_child_positions(&mut self) {}
+    fn set_child_positions(&mut self) {
+        let position = self.absolute_position();
+        if let Some(fallback_text) = &mut self.fallback_text {
+            fallback_text.set_parent_position(&position);
+        }
+    }
 }
 
 impl Input for Tile {
@@ -139,13 +150,19 @@ impl Input for Tile {
 
 impl Draw for Tile {
     fn set_render_details(&mut self, renderer: &mut Renderer) {
-        match (&self.sprite, &self.texture_bytes) {
-            (Some(sprite), _) => {
+        let focused_instance = self.focused_instance();
+
+        match (&self.sprite, &self.texture_bytes, &mut self.fallback_text) {
+            (Some(sprite), _, fallback_text) => {
                 renderer
                     .sprite_pass
-                    .set_sprite_instance(*sprite, self.focused_instance());
+                    .set_sprite_instance(*sprite, focused_instance);
+
+                if let Some(fallback_text) = fallback_text {
+                    fallback_text.set_render_details(renderer);
+                }
             }
-            (None, Some(texture_bytes)) => {
+            (None, Some(texture_bytes), _) => {
                 let texture = match Texture::from_bytes(
                     &renderer.context().device(),
                     &renderer.context().queue(),
@@ -153,15 +170,13 @@ impl Draw for Tile {
                     "test.jpeg",
                 ) {
                     Ok(texture) => texture,
-                    Err(_) => {
-                        let fallback_bytes = include_bytes!("../renderer/test.png");
-                        Texture::from_bytes(
-                            &renderer.context().device(),
-                            &renderer.context().queue(),
-                            fallback_bytes,
-                            "fallback.png",
-                        )
-                        .expect("created texture")
+                    Err(err) => {
+                        eprintln!("failed to fetch texture, err: {:?}", err);
+                        let mut text = Text::new(self.title.clone());
+                        text.set_position(&Vec3::new(-0.5 * SCALE, 0.0, 1.0)); // Arbitrary Z value but just so it goes over focused tile.
+
+                        self.fallback_text = Some(text);
+                        renderer.sprite_pass.fallback_texture(renderer.context())
                     }
                 };
 
@@ -171,7 +186,7 @@ impl Draw for Tile {
                     ..
                 } = renderer;
                 let image_handle = sprite_pass.add_texture(context.device(), texture);
-                let instance_handle = sprite_pass.add_instance(self.focused_instance());
+                let instance_handle = sprite_pass.add_instance(focused_instance);
 
                 self.sprite = Some(sprite_pass.add_sprite(image_handle, instance_handle));
             }
