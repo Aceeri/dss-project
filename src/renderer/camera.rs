@@ -13,12 +13,14 @@ pub struct Camera {
     pub top: f32,
     pub near: f32,
     pub far: f32,
+
+    pub scaling: f32,
 }
 
 impl Camera {
     pub fn new(width: f32, height: f32) -> Self {
         let aspect_ratio = width / height;
-        let scaling = 5.0; // Just make things a bit easier to work with.
+        let scaling = 1000.0; // Just make things a bit easier to work with.
         Self {
             // Back up 1 so we can actually see the images.
             eye: Vec3::new(0.0, 0.0, 1.0),
@@ -33,6 +35,8 @@ impl Camera {
 
             near: 0.0,
             far: 100.0,
+
+            scaling,
         }
     }
 
@@ -61,16 +65,19 @@ impl Camera {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct CameraUniform {
     view_matrix: [[f32; 4]; 4],
+    scaling: f32,
 }
 
 impl CameraUniform {
     pub fn new() -> Self {
         Self {
             view_matrix: Mat4::IDENTITY.to_cols_array_2d(),
+            scaling: 1.0,
         }
     }
 
     pub fn set_view_matrix(&mut self, camera: &Camera) {
         self.view_matrix = camera.build_view_matrix().to_cols_array_2d();
+        self.scaling = camera.scaling;
     }
 }

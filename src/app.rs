@@ -15,6 +15,8 @@ pub use crate::{
     renderer::Renderer,
 };
 
+const WANTED_SIZE: PhysicalSize<u32> = PhysicalSize::new(1920, 1080);
+
 pub struct App {
     renderer: Renderer,
     menu: Menu,
@@ -28,7 +30,7 @@ impl App {
         let event_loop = EventLoop::new();
         let window_builder = WindowBuilder::new()
             .with_min_inner_size(LogicalSize::new(50.0, 50.0))
-            .with_inner_size(PhysicalSize::new(1920.0, 1080.0))
+            .with_inner_size(WANTED_SIZE)
             .with_title("DSS Project".to_string());
 
         let window = window_builder.build(&event_loop).unwrap();
@@ -62,14 +64,11 @@ impl App {
         let mut done_polling = false;
 
         event_loop.run(move |event, event_loop_window_target, control_flow| {
-            *control_flow = ControlFlow::Wait;
+            *control_flow = ControlFlow::Poll;
 
             if !done_polling {
                 done_polling = menu.poll(&mut http_grabber).expect("polling failed");
             }
-
-            //menu.partial_set_render_details(&mut renderer);
-            menu.set_render_details(&mut renderer);
 
             match event {
                 Event::WindowEvent {
@@ -113,12 +112,11 @@ impl App {
                                         event_loop_window_target.primary_monitor()
                                     {
                                         let mut modes = monitor.video_modes().collect::<Vec<_>>();
-                                        let wanted_size = winit::dpi::PhysicalSize::new(1920, 1080);
 
                                         modes.sort_by(|a, b| a.cmp(&b));
                                         let mut video_mode = modes.get(0).cloned();
 
-                                        modes = modes.into_iter().filter(|mode| mode.size() == wanted_size).collect::<Vec<_>>();
+                                        modes = modes.into_iter().filter(|mode| mode.size() == WANTED_SIZE).collect::<Vec<_>>();
                                         if let Some(wanted_mode) = modes.get(0) {
                                             video_mode = Some(wanted_mode.clone())
                                         }
@@ -135,14 +133,18 @@ impl App {
                             WindowEvent::Resized(physical_size) => {
                                 renderer.resize(*physical_size);
                             }
-                            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor } => {
                                 renderer.resize(**new_inner_size);
+                                renderer.set_scale_factor(*scale_factor);
                             }
                             _ => {}
                         }
                     }
                 }
                 Event::RedrawRequested(_) => {
+                    menu.update(0.01);
+                    menu.set_render_details(&mut renderer);
+
                     if let Err(err) = renderer.update() {
                         eprintln!("update error: {:?}", err);
                     }

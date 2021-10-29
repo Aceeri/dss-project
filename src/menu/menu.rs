@@ -7,17 +7,23 @@ use winit::event::{ElementState, KeyboardInput, VirtualKeyCode, WindowEvent};
 use crate::{
     grabber::HttpGrabber,
     home::Home,
-    menu::{prelude::*, Collection, Tile},
     renderer::Renderer,
+
+};
+
+use super::{
+    prelude::*,
+    Collection,
+    Tile,
 };
 
 pub static HOME_URL: &'static str = "https://cd-static.bamgrid.com/dp-117731241344/home.json";
 pub static ASPECT_RATIO_STRING: &'static str = "1.78";
-pub const COLLECTION_SPACING: f32 = 0.5;
+pub const COLLECTION_SPACING: f32 = 0.5 * SCALE;
 
 #[derive(Debug, Clone)]
 pub struct Menu {
-    position: Position,
+    position: InterpPosition,
 
     // Vertical list of collections, each collection being a group of tiles.
     collections: Vec<Collection>,
@@ -37,7 +43,7 @@ pub struct Menu {
 impl Menu {
     pub fn new() -> Menu {
         Menu {
-            position: Position::new(),
+            position: InterpPosition::new(),
             collections: Vec::new(),
             focused_collection: 0,
             focused_tile: 0,
@@ -49,11 +55,16 @@ impl Menu {
         }
     }
 
+    pub fn update(&mut self, delta: f64) {
+        self.position.update(delta);
+        self.set_child_positions();
+    }
+
     pub fn push_collection(&mut self, mut collection: Collection) {
         collection.set_parent_position(&self.absolute_position());
         collection.set_position(&Vec3::new(
             0.0,
-            (1.0 + COLLECTION_SPACING) * self.collections.len() as f32,
+            (1.0 * SCALE + COLLECTION_SPACING) * self.collections.len() as f32,
             0.0,
         ));
         self.collections.push(collection);
@@ -73,7 +84,7 @@ impl Menu {
                         if let Some(image) = item.image.tile.get(ASPECT_RATIO_STRING) {
                             let details = image.details();
                             let mut tile = Tile::new(details.clone());
-                            tile.set_size(Vec2::new(1.78, 1.0));
+                            tile.set_size(Vec2::new(1.78 * SCALE, 1.0 * SCALE));
                             collection.push_tile(tile);
                         }
                     }
@@ -104,10 +115,10 @@ impl Menu {
 
 impl PositionHierarchy for Menu {
     fn position(&self) -> &Position {
-        &self.position
+        self.position.position()
     }
     fn position_mut(&mut self) -> &mut Position {
-        &mut self.position
+        self.position.position_mut()
     }
     fn set_child_positions(&mut self) {
         let absolute = self.absolute_position();
@@ -136,6 +147,19 @@ impl EventGrab for Menu {
                     }
                     None => {}
                 }
+                return true;
+            }
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::RShift),
+                        ..
+                    },
+                ..
+            } => {
+                let new_position = self.position.wanted_position() - Vec3::new(0.0, 100.0, 0.0);
+                self.position.interp_position(new_position, 0.2);
                 return true;
             }
             WindowEvent::KeyboardInput {

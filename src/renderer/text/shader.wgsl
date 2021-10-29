@@ -2,7 +2,7 @@
 [[block]]
 struct CameraUniform {
     view_matrix: mat4x4<f32>;
-    aspect_ratio: f32;
+    scaling: f32;
 };
 
 [[group(0), binding(0)]]
@@ -59,7 +59,8 @@ fn main(input: InstanceInput) -> VertexOutput {
         }
     }
 
-    out.position = camera.view_matrix * vec4<f32>(position.x / 200.0 / 5.0, -position.y / 200.0 / 5.0, input.z, 1.0);
+    //out.position = camera.view_matrix * vec4<f32>(position.x / 200.0 / 5.0, -position.y / 200.0 / 5.0, input.z, 1.0);
+    out.position = camera.view_matrix * vec4<f32>(position.x, -position.y, input.z, 1.0);
     out.font_color = input.color;
     return out;
 }
@@ -75,6 +76,5 @@ fn main(input: VertexOutput) -> [[location(0)]] vec4<f32> {
         discard;
     }
 
-    //return vec4<f32>(1.0, 1.0, 1.0, 1.0);
     return input.font_color * vec4<f32>(1.0, 1.0, 1.0, alpha);
 }

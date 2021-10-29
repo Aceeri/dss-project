@@ -45,10 +45,7 @@ pub struct Sprite {
 }
 
 pub struct SpritePass {
-    shader: wgpu::ShaderModule,
-
     pipeline: wgpu::RenderPipeline,
-    pipeline_layout: wgpu::PipelineLayout,
     texture_bind_group_layout: wgpu::BindGroupLayout,
 
     textures: ReuseVec<SpriteTexture>,
@@ -178,10 +175,7 @@ impl SpritePass {
         );
 
         Ok(Self {
-            shader,
-
             pipeline,
-            pipeline_layout,
 
             texture_bind_group_layout,
 

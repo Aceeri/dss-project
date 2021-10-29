@@ -123,10 +123,7 @@ impl GlyphInstance {
 }
 
 pub struct TextPass {
-    shader: wgpu::ShaderModule,
-
     pipeline: wgpu::RenderPipeline,
-    pipeline_layout: wgpu::PipelineLayout,
     brush: GlyphBrush<GlyphInstance>,
     instances: wgpu::Buffer,
     supported_instances: u64,
@@ -139,7 +136,7 @@ pub struct TextPass {
 
 impl TextPass {
     pub fn new(context: &RenderContext) -> Result<Self> {
-        let font = FontArc::try_from_slice(include_bytes!("./fonts/DejaVuSans.ttf"))?;
+        let font = FontArc::try_from_slice(include_bytes!("./fonts/Urbanist/Urbanist-Light.otf"))?;
         let brush = GlyphBrushBuilder::using_font(font).build();
 
         let glyph_bind_group_layout =
@@ -204,7 +201,14 @@ impl TextPass {
             entry_point: "main",
             targets: &[wgpu::ColorTargetState {
                 format: context.config().format,
-                blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                blend: Some(wgpu::BlendState {
+                    color: wgpu::BlendComponent {
+                        src_factor: wgpu::BlendFactor::SrcAlpha,
+                        dst_factor: wgpu::BlendFactor::OneMinusSrcAlpha,
+                        operation: wgpu::BlendOperation::Add,
+                    },
+                    alpha: wgpu::BlendComponent::OVER,
+                }),
                 write_mask: wgpu::ColorWrites::ALL,
             }],
         };
@@ -248,9 +252,7 @@ impl TextPass {
         });
 
         Ok(Self {
-            shader,
             pipeline,
-            pipeline_layout,
             brush,
             glyph_texture,
             glyph_bind_group,
@@ -335,10 +337,12 @@ impl TextPass {
         encoder: &mut wgpu::CommandEncoder,
         view: &wgpu::TextureView,
     ) {
+        let font_size = 72.0;
+        let scale = (font_size * context.scale_factor() as f32).round();
         self.brush.queue(
             Section::default()
-                .add_text(Text::new("a quick brown fox jumps over the lazy dog").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(192.0))
-                .add_text(Text::new("A QUICK BROWN FOX JUMPS OVER THE LAZY DOG").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(192.0))
+                .add_text(Text::new("a quick brown fox jumps over the lazy dog").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(scale))
+                .add_text(Text::new("A QUICK BROWN FOX JUMPS OVER THE LAZY DOG").with_color([1.0, 1.0, 1.0, 1.0]).with_scale(scale))
         );
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

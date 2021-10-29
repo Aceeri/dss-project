@@ -4,11 +4,16 @@ use winit::event::WindowEvent;
 
 use crate::{
     grabber::HttpGrabber,
-    menu::{prelude::*, Tile, ASPECT_RATIO},
     renderer::Renderer,
 };
 
-pub const TILE_SPACING: f32 = 0.2;
+use super::{
+    prelude::*,
+    Tile,
+    ASPECT_RATIO,
+};
+
+pub const TILE_SPACING: f32 = 0.2 * SCALE;
 
 #[derive(Debug, Clone)]
 pub struct Collection {
@@ -35,7 +40,7 @@ impl Collection {
     pub fn push_tile(&mut self, mut tile: Tile) {
         tile.set_parent_position(&self.absolute_position());
         tile.set_position(&Vec3::new(
-            (ASPECT_RATIO + TILE_SPACING) * self.tiles.len() as f32,
+            (ASPECT_RATIO * SCALE + TILE_SPACING) * self.tiles.len() as f32,
             0.0,
             0.0,
         ));

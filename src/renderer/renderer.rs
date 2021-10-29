@@ -2,15 +2,12 @@ use anyhow::Result;
 use wgpu::util::DeviceExt;
 use winit::{event::WindowEvent, window::Window};
 
-use glam::{Mat4, Vec2, Vec3};
-
 use std::mem;
 
 use super::{
-    Camera, CameraUniform, Sprite, SpriteId, SpriteInstance, SpriteMesh, SpritePass, TextPass,
+    Camera, CameraUniform, SpritePass, TextPass,
     Texture,
 };
-use crate::util::ReuseVec;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -71,6 +68,10 @@ impl Renderer {
         self.context.resize(new_size);
     }
 
+    pub fn set_scale_factor(&mut self, scale_factor: f64) {
+        self.context.set_scale_factor(scale_factor);
+    }
+
     pub fn input(&mut self, _event: &WindowEvent) -> bool {
         /*
         match event {
@@ -111,7 +112,7 @@ impl Renderer {
 
         {
             // Clear color render pass.
-            let mut clear_render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Clear Pass"),
                 color_attachments: &[wgpu::RenderPassColorAttachment {
                     view: &view,
@@ -132,8 +133,8 @@ impl Renderer {
             });
         }
 
-        self.sprite_pass.render(&self.context, &mut encoder, &view);
         self.text_pass.render(&self.context, &mut encoder, &view);
+        self.sprite_pass.render(&self.context, &mut encoder, &view);
 
         self.context
             .queue()
@@ -164,6 +165,7 @@ pub struct RenderContext {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     camera_bind_group_layout: wgpu::BindGroupLayout,
+    scale_factor: f64,
 
     clear_color: wgpu::Color,
 }
@@ -258,6 +260,9 @@ impl RenderContext {
             a: 1.0,
         };
 
+        let scale_factor = window.scale_factor();
+        println!("initial scale factor: {}", scale_factor);
+
         Ok(Self {
             instance,
             surface,
@@ -273,6 +278,7 @@ impl RenderContext {
             camera_buffer,
             camera_bind_group,
             camera_bind_group_layout,
+            scale_factor,
 
             depth_texture,
 
@@ -282,6 +288,8 @@ impl RenderContext {
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
+            //println!("resizing to {}x{}", new_size.width, new_size.height);
+
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
@@ -301,6 +309,11 @@ impl RenderContext {
             );
             self.surface.configure(&self.device, &self.config);
         }
+    }
+
+    pub fn set_scale_factor(&mut self, scale_factor: f64) {
+        println!("scale factor now {}", scale_factor);
+        self.scale_factor = scale_factor;
     }
 
     // Getters for encapsulation purposes.
@@ -358,5 +371,9 @@ impl RenderContext {
 
     pub fn clear_color(&self) -> &wgpu::Color {
         &self.clear_color
+    }
+
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
     }
 }
